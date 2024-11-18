@@ -72,7 +72,7 @@ public final class TileEntityWirelessRouter extends TickingTileEntity {
     @Cap(type = CapType.CONTAINER)
     private static final Function<TileEntityWirelessRouter, MenuProvider> screenHandler = be -> new DefaultContainerProvider<GenericContainer>(BLOCK_WIRELESS_ROUTER.i18n())
             .containerSupplier(empty(WirelessRouterModule.CONTAINER_WIRELESS_ROUTER, be))
-            .data(WirelessRouterModule.WIRELESS_ROUTER_DATA, WirelessRouterData.STREAM_CODEC)
+            .data(WirelessRouterModule.WIRELESS_ROUTER_DATA, WirelessRouterData.STREAM_CODEC, WirelessRouterData.CODEC)
             .setupSync(be);
 
     public TileEntityWirelessRouter(BlockPos pos, BlockState state) {

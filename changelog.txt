@@ -1,3 +1,6 @@
+Upcoming:
+- Update to latest McJtyLib
+
 1.21-7.0.2:
 - Fixed a problem with item filters being discarded when the controller is broken or when the game is saved
 
