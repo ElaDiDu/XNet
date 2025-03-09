@@ -1,7 +1,6 @@
 package mcjty.xnet.modules.wireless.blocks;
 
 import mcjty.lib.api.container.DefaultContainerProvider;
-import mcjty.lib.bindings.GuiValue;
 import mcjty.lib.blocks.BaseBlock;
 import mcjty.lib.builder.BlockBuilder;
 import mcjty.lib.builder.TooltipBuilder;
@@ -20,7 +19,6 @@ import mcjty.xnet.client.ControllerChannelClientInfo;
 import mcjty.xnet.compat.XNetTOPDriver;
 import mcjty.xnet.logic.LogicTools;
 import mcjty.xnet.modules.cables.CableColor;
-import mcjty.xnet.modules.controller.ControllerModule;
 import mcjty.xnet.modules.router.blocks.TileEntityRouter;
 import mcjty.xnet.modules.wireless.WirelessRouterModule;
 import mcjty.xnet.modules.wireless.data.WirelessRouterData;
@@ -48,7 +46,6 @@ import java.util.UUID;
 import java.util.function.Function;
 
 import static mcjty.lib.api.container.DefaultContainerProvider.empty;
-import static mcjty.xnet.apiimpl.Constants.TAG_INFO;
 import static mcjty.xnet.modules.controller.blocks.TileEntityController.ERROR;
 import static mcjty.xnet.modules.wireless.WirelessRouterModule.WIRELESS_ROUTER;
 import static mcjty.xnet.utils.I18nConstants.BLOCK_WIRELESS_ROUTER;
