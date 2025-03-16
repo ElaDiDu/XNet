@@ -20,6 +20,7 @@ import mcjty.xnet.apiimpl.enums.ChannelMode;
 import mcjty.xnet.apiimpl.enums.InsExtMode;
 import mcjty.xnet.modules.cables.blocks.ConnectorTileEntity;
 import mcjty.xnet.setup.Config;
+import mcjty.xnet.utils.CastTools;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
 import net.minecraft.nbt.CompoundTag;
@@ -333,7 +334,7 @@ public class FluidChannelSettings extends DefaultChannelSettings implements ICha
 
     @Override
     public void update(Map<String, Object> data) {
-        channelMode = ChannelMode.valueOf(((String) data.get(TAG_MODE)).toUpperCase());
+        channelMode = CastTools.safeChannelMode(data.get(TAG_MODE));
     }
 
     @Override
