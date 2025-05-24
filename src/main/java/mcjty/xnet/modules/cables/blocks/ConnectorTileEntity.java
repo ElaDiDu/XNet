@@ -2,6 +2,7 @@ package mcjty.xnet.modules.cables.blocks;
 
 import mcjty.lib.api.container.DefaultContainerProvider;
 import mcjty.lib.bindings.GuiValue;
+import mcjty.lib.bindings.Value;
 import mcjty.lib.blockcommands.Command;
 import mcjty.lib.blockcommands.ResultCommand;
 import mcjty.lib.blockcommands.ServerCommand;
@@ -13,6 +14,7 @@ import mcjty.lib.typed.TypedMap;
 import mcjty.lib.varia.OrientationTools;
 import mcjty.rftoolsbase.api.xnet.tiles.IConnectorTile;
 import mcjty.xnet.modules.cables.CableModule;
+import mcjty.xnet.modules.cables.data.ConnectorData;
 import mcjty.xnet.modules.facade.FacadeModule;
 import mcjty.xnet.modules.facade.IFacadeSupport;
 import mcjty.xnet.modules.facade.MimicBlockSupport;
@@ -56,14 +58,12 @@ public class ConnectorTileEntity extends GenericTileEntity implements IFacadeSup
     private int pulseCounter;
     private final int[] powerOut = new int[] { 0, 0, 0, 0, 0, 0 };
 
-    private byte enabled = 0x3f;
-
     private final Lazy<SidedHandler>[] sidedStorages;
 
     private final Block[] cachedNeighbours = new Block[OrientationTools.DIRECTION_VALUES.length];
 
     @GuiValue
-    private String name = "";
+    public static final Value<?, String> VALUE_NAME = Value.create("name", Type.STRING, ConnectorTileEntity::getConnectorName, ConnectorTileEntity::setConnectorName);
 
     @Override
     public void setRemoved() {
@@ -115,12 +115,14 @@ public class ConnectorTileEntity extends GenericTileEntity implements IFacadeSup
     }
 
     public void setEnabled(Direction direction, boolean e) {
+        ConnectorData data = getData(CableModule.CONNECTOR_DATA);
+        byte enabled = data.enabled();
         if (e) {
             enabled |= 1 << direction.ordinal();
         } else {
             enabled &= ~(1 << direction.ordinal());
         }
-        setChanged();
+        setData(CableModule.CONNECTOR_DATA, data.withEnabled(enabled));
         Block block = getBlockState().getBlock();
         if (block instanceof GenericCableBlock) {
             level.setBlock(worldPosition, ((GenericCableBlock) block).calculateState(level, worldPosition, getBlockState()), Block.UPDATE_ALL);
@@ -128,6 +130,8 @@ public class ConnectorTileEntity extends GenericTileEntity implements IFacadeSup
     }
 
     public boolean isEnabled(Direction direction) {
+        ConnectorData data = getData(CableModule.CONNECTOR_DATA);
+        byte enabled = data.enabled();
         return (enabled & (1 << direction.ordinal())) != 0;
     }
 
@@ -231,13 +235,15 @@ public class ConnectorTileEntity extends GenericTileEntity implements IFacadeSup
     }
 
     public void setConnectorName(String n) {
-        this.name = n;
-        setChanged();
+        ConnectorData data = getData(CableModule.CONNECTOR_DATA);
+        data = data.withName(n);
+        setData(CableModule.CONNECTOR_DATA, data);
     }
 
 
     public String getConnectorName() {
-        return name;
+        ConnectorData data = getData(CableModule.CONNECTOR_DATA);
+        return data.name();
     }
 
     public int getEnergy() {

@@ -24,4 +24,8 @@ public record ConnectorData(String name, byte enabled) {
     public ConnectorData withEnabled(byte enabled) {
         return new ConnectorData(name, enabled);
     }
+
+    public ConnectorData withName(String name) {
+        return new ConnectorData(name, enabled);
+    }
 }

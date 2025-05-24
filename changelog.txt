@@ -1,3 +1,6 @@
+Upcoming:
+- Fixed a problem with the connector not remembering its settings
+
 1.21-7.0.4:
 - Fixed a problem with the fluid channels not working properly
 
