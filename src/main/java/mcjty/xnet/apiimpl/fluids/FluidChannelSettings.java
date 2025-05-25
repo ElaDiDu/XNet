@@ -206,7 +206,7 @@ public class FluidChannelSettings extends DefaultChannelSettings implements ICha
                 continue;
             }
             FluidStack matcher = settings.getMatcher();
-            if (matcher != null && !matcher.equals(stack)) {
+            if (matcher != null && !FluidStack.isSameFluidSameComponents(matcher, stack)) {
                 continue;
             }
             if (!checkRedstone(settings, consumer.getConnectorEntity(), context)) {
@@ -244,7 +244,7 @@ public class FluidChannelSettings extends DefaultChannelSettings implements ICha
     private int countFluid(IFluidHandler handler, @Nullable FluidStack matcher) {
         int cnt = 0;
         for (int i = 0; i < handler.getTanks(); i++) {
-            if (!handler.getFluidInTank(i).isEmpty() && (matcher == null || matcher.equals(handler.getFluidInTank(i)))) {
+            if (!handler.getFluidInTank(i).isEmpty() && (matcher == null || FluidStack.isSameFluidSameComponents(matcher, handler.getFluidInTank(i)))) {
                 cnt += handler.getFluidInTank(i).getAmount();
             }
         }

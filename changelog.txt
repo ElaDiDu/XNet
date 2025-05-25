@@ -1,3 +1,6 @@
+Upcoming:
+- Fixed a bug in the fluid insert node with the filter. It wasn't working
+
 1.21-7.0.5:
 - Fixed a problem with the connector not remembering its settings
 
