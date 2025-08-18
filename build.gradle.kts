@@ -174,23 +174,12 @@ dependencies {
         isTransitive = false // We only care about the 1 annotation class
     }
     testCompileOnly("me.eigenraven.java8unsupported:java-8-unsupported-shim:1.0.0")
-    implementation("zone.rong:mixinbooter:8.9")
     // Mixins
-
-    val mixin : String = modUtils.enableMixins("zone.rong:mixinbooter:8.9", "mixins.mmcea.refmap.json").toString()
-    api (mixin) {
-        isTransitive = false
-    }
 
 
     annotationProcessor("org.ow2.asm:asm-debug-all:5.2")
     annotationProcessor("com.google.guava:guava:30.0-jre")
     annotationProcessor("com.google.code.gson:gson:2.8.9")
-
-
-    annotationProcessor (mixin) {
-        isTransitive = false
-    }
 
     //implementation("curse.maven:jei-238222:5846804")
     implementation(rfg.deobf("curse.maven:spark-361579:3542217"))
