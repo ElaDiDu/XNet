@@ -12,8 +12,8 @@ plugins {
 }
 
 // Project properties
-group = "alecsio.modularmachineryaddons"
-version = "1.1.1"
+group = "eladidu.xnet"
+version = "1.8.3"
 
 // Set the toolchain version to decouple the Java we run Gradle with from the Java used to compile and run the mod
 java {
