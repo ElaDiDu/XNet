@@ -304,7 +304,9 @@ public class ItemChannelSettings extends DefaultChannelSettings implements IChan
         int originalCount = stack.getCount();
         for (int j = 0; j < itemConsumers.size(); j++)
         {
-            int i = (j + roundRobinOffset) % itemConsumers.size();
+            roundRobinOffset = roundRobinOffset % itemConsumers.size();
+            int i = roundRobinOffset;
+            roundRobinOffset++;
             Pair<SidedConsumer, ItemConnectorSettings> entry = itemConsumers.get(i);
             ItemConnectorSettings insertSettings = entry.getValue();
 
@@ -337,8 +339,8 @@ public class ItemChannelSettings extends DefaultChannelSettings implements IChan
 
                 remaining = insertToHandler(from, handler, stack, extractSettings, insertSettings, index, startIndex);
             }
-            if (originalCount != remaining)
-                roundRobinOffset = (roundRobinOffset + 1) % itemConsumers.size();
+            /*if (originalCount != remaining)
+                roundRobinOffset = (roundRobinOffset + 1) % itemConsumers.size();*/
             if (remaining <= 0)
                 return true;
             stack.setCount(remaining);
