@@ -34,7 +34,7 @@ import java.util.List;
 public class ConnectorUpgradeItem extends Item {
 
     public ConnectorUpgradeItem() {
-        setUnlocalizedName(XNet.MODID + ".connector_upgrade");
+        setTranslationKey(XNet.MODID + ".connector_upgrade");
         setRegistryName("connector_upgrade");
         setCreativeTab(XNet.setup.getTab());
         McJtyRegister.registerLater(this, XNet.instance);
@@ -81,7 +81,7 @@ public class ConnectorUpgradeItem extends Item {
 
                     te = TileEntity.create(world, tag);
                     if (te != null) {
-                        world.getChunkFromBlockCoords(pos).addTileEntity(te);
+                        world.getChunk(pos).addTileEntity(te);
                         te.markDirty();
                         world.notifyBlockUpdate(pos, blockState, blockState, 3);
                         player.inventory.decrStackSize(player.inventory.currentItem, 1);

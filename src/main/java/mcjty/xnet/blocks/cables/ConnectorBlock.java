@@ -223,7 +223,7 @@ public class ConnectorBlock extends GenericCableBlock implements ITileEntityProv
     private void checkRedstone(World world, BlockPos pos) {
         TileEntity te = world.getTileEntity(pos);
         if (te instanceof ConnectorTileEntity) {
-            int powered = world.isBlockIndirectlyGettingPowered(pos);
+            int powered = world.getRedstonePowerFromNeighbors(pos);
             ConnectorTileEntity genericTileEntity = (ConnectorTileEntity) te;
             genericTileEntity.setPowerInput(powered);
         }

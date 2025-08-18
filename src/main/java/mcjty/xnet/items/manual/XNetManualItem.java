@@ -18,7 +18,7 @@ import net.minecraftforge.fml.relauncher.SideOnly;
 public class XNetManualItem extends Item {
 
     public XNetManualItem() {
-        setUnlocalizedName(XNet.MODID + ".xnet_manual");
+        setTranslationKey(XNet.MODID + ".xnet_manual");
         setRegistryName("xnet_manual");
         setCreativeTab(XNet.setup.getTab());
         McJtyRegister.registerLater(this, XNet.instance);

@@ -24,7 +24,7 @@ public class RedstoneProxyUBlock extends RedstoneProxyBlock {
 
     public RedstoneProxyUBlock() {
         super(Material.IRON);
-        setUnlocalizedName(XNet.MODID + ".redstone_proxy_upd");
+        setTranslationKey(XNet.MODID + ".redstone_proxy_upd");
         setRegistryName("redstone_proxy_upd");
         McJtyRegister.registerLater(this, XNet.instance, null);
         McJtyRegister.registerLater(new ItemBlock(this).setRegistryName(getRegistryName()), XNet.instance);

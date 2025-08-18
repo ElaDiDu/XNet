@@ -26,18 +26,18 @@ public class BakedModelLoader implements ICustomModelLoader {
 
     @Override
     public boolean accepts(ResourceLocation modelLocation) {
-        if (!modelLocation.getResourceDomain().equals(XNet.MODID)) {
+        if (!modelLocation.getNamespace().equals(XNet.MODID)) {
             return false;
         }
         if (modelLocation instanceof ModelResourceLocation && ((ModelResourceLocation)modelLocation).getVariant().equals("inventory")) {
             return false;
         }
-        return NAMES.contains(modelLocation.getResourcePath());
+        return NAMES.contains(modelLocation.getPath());
     }
 
     @Override
     public IModel loadModel(ResourceLocation modelLocation) {
-        if (FacadeBlock.FACADE.equals(modelLocation.getResourcePath())) {
+        if (FacadeBlock.FACADE.equals(modelLocation.getPath())) {
             return FACADE_MODEL;
         } else {
             return GENERIC_MODEL;

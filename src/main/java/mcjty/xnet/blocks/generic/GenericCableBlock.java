@@ -1,5 +1,6 @@
 package mcjty.xnet.blocks.generic;
 
+import com.jaquadro.minecraft.storagedrawers.block.BlockController;
 import mcjty.lib.McJtyRegister;
 import mcjty.lib.blocks.DamageMetadataItemBlock;
 import mcjty.lib.compat.theoneprobe.TOPInfoProvider;
@@ -18,8 +19,6 @@ import mcjty.xnet.multiblock.BlobId;
 import mcjty.xnet.multiblock.ColorId;
 import mcjty.xnet.multiblock.WorldBlob;
 import mcjty.xnet.multiblock.XNetBlobData;
-import mcp.mobius.waila.api.IWailaConfigHandler;
-import mcp.mobius.waila.api.IWailaDataAccessor;
 import net.minecraft.block.Block;
 import net.minecraft.block.SoundType;
 import net.minecraft.block.material.Material;
@@ -58,8 +57,9 @@ import javax.annotation.Nullable;
 import java.util.Collection;
 import java.util.List;
 import java.util.Set;
+import java.util.logging.Logger;
 
-public abstract class GenericCableBlock extends Block implements WailaInfoProvider, TOPInfoProvider {
+public abstract class GenericCableBlock extends Block implements TOPInfoProvider {
 
     // Properties that indicate if there is the same block in a certain direction.
     public static final UnlistedPropertyBlockType NORTH = new UnlistedPropertyBlockType("north");
@@ -100,10 +100,10 @@ public abstract class GenericCableBlock extends Block implements WailaInfoProvid
         setHardness(1.0f);
         setSoundType(SoundType.METAL);
         setHarvestLevel("pickaxe", 0);
-        setUnlocalizedName(XNet.MODID + "." + name);
-        setRegistryName(name);
+        setRegistryName(XNet.MODID, name);
+        setTranslationKey(XNet.MODID + "." + name);
         McJtyRegister.registerLater(this, XNet.instance, null);
-        McJtyRegister.registerLater(createItemBlock().setRegistryName(name), XNet.instance);
+        McJtyRegister.registerLater(createItemBlock().setRegistryName(XNet.MODID, name), XNet.instance);
         setCreativeTab(XNet.setup.getTab());
         setDefaultState(getDefaultState().withProperty(COLOR, CableColor.BLUE));
     }
@@ -128,7 +128,7 @@ public abstract class GenericCableBlock extends Block implements WailaInfoProvid
                 item.setTagCompound(new NBTTagCompound());
             }
             NBTTagCompound display = new NBTTagCompound();
-            String unlocname = getUnlocalizedName() + "_" + color.getName() + ".name";
+            String unlocname = getTranslationKey() + "_" + color.getName() + ".name";
             display.setString("LocName", unlocname);
             item.getTagCompound().setTag("display", display);
         }
@@ -149,7 +149,7 @@ public abstract class GenericCableBlock extends Block implements WailaInfoProvid
     public void initModel() {
         ResourceLocation name = getRegistryName();
         for (CableColor color : CableColor.VALUES) {
-            ModelLoader.setCustomModelResourceLocation(Item.getItemFromBlock(this), color.ordinal(), new ModelResourceLocation(new ResourceLocation(name.getResourceDomain(), name.getResourcePath()+"item"), "color=" + color.name()));
+            ModelLoader.setCustomModelResourceLocation(Item.getItemFromBlock(this), color.ordinal(), new ModelResourceLocation(new ResourceLocation(name.getNamespace(), name.getPath()+"item"), "color=" + color.name()));
         }
     }
 
@@ -216,18 +216,11 @@ public abstract class GenericCableBlock extends Block implements WailaInfoProvid
 
     private RayTraceResult checkIntersect(BlockPos pos, Vec3d vec3d, Vec3d vec3d1, AxisAlignedBB boundingBox) {
         RayTraceResult raytraceresult = boundingBox.calculateIntercept(vec3d, vec3d1);
-        return raytraceresult == null ? null : new RayTraceResult(raytraceresult.hitVec.addVector(pos.getX(), pos.getY(), pos.getZ()), raytraceresult.sideHit, pos);
+        return raytraceresult == null ? null : new RayTraceResult(raytraceresult.hitVec.add(pos.getX(), pos.getY(), pos.getZ()), raytraceresult.sideHit, pos);
     }
 
     protected RayTraceResult originalCollisionRayTrace(IBlockState blockState, World world, BlockPos pos, Vec3d start, Vec3d end) {
         return super.collisionRayTrace(blockState, world, pos, start, end);
-    }
-
-    @Override
-    @SideOnly(Side.CLIENT)
-    @Optional.Method(modid = "waila")
-    public List<String> getWailaBody(ItemStack itemStack, List<String> currenttip, IWailaDataAccessor accessor, IWailaConfigHandler config) {
-        return currenttip;
     }
 
     @Override

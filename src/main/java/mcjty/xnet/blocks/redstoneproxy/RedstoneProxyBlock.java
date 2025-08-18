@@ -30,7 +30,7 @@ public class RedstoneProxyBlock extends Block {
 
     public RedstoneProxyBlock() {
         this(Material.IRON);
-        setUnlocalizedName(XNet.MODID + ".redstone_proxy");
+        setTranslationKey(XNet.MODID + ".redstone_proxy");
         setRegistryName("redstone_proxy");
         McJtyRegister.registerLater(this, XNet.instance, null);
         McJtyRegister.registerLater(new ItemBlock(this).setRegistryName(getRegistryName()), XNet.instance);
