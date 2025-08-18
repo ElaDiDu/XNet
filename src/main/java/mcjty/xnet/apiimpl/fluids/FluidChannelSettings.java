@@ -192,9 +192,15 @@ public class FluidChannelSettings extends DefaultChannelSettings implements ICha
     }
 
     private FluidStack fetchFluid(IFluidHandler handler, boolean simulate, @Nullable FluidStack matcher, int rate) {
-        return handler.drain(rate, !simulate);
+        if (matcher == null)
+            return handler.drain(rate, !simulate);
+        else
+        {
+            FluidStack toExtract = matcher.copy();
+            toExtract.amount = rate;
+            return handler.drain(toExtract, !simulate);
+        }
     }
-
 
     private int getPossibleDistributeFills(Map<Pair<SidedConsumer, FluidConnectorSettings>, Integer> fillPossible,
                                  @Nonnull IControllerContext context, @Nonnull FluidStack stack)
