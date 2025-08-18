@@ -31,6 +31,7 @@ import net.minecraftforge.items.ItemHandlerHelper;
 import net.minecraftforge.items.wrapper.InvWrapper;
 import net.minecraftforge.items.wrapper.SidedInvWrapper;
 import org.apache.commons.lang3.tuple.Pair;
+import scala.Int;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
@@ -116,7 +117,7 @@ public class ItemChannelSettings extends DefaultChannelSettings implements IChan
         extractIndices.put(consumer, index);
     }
 
-    private static class MInteger {
+    static class MInteger {
         private int i;
 
         public MInteger(int i) {
@@ -244,40 +245,202 @@ public class ItemChannelSettings extends DefaultChannelSettings implements IChan
         }
 
         MInteger index = new MInteger(startIdx);
-        while (true) {
-            ItemStack stack = fetchItem(handler, true, extractMatcher, settings.getStackMode(), settings.getExtractAmount(), 64, index, startIdx);
-            if (!stack.isEmpty()) {
+        while (true)
+        {
+            ItemStack stack = fetchItem(handler, true, extractMatcher, settings.getStackMode(), settings.getExtractAmount(), Integer.MAX_VALUE, index, startIdx);
+            if (!stack.isEmpty())
+            {
                 // Now that we have a stack we first reduce the amount of the stack if we want to keep a certain
                 // number of items
                 int toextract = stack.getCount();
-                if (count != null) {
-                    int canextract = amount-count;
-                    if (canextract <= 0) {
+                if (count != null)
+                {
+                    int canextract = amount - count;
+                    if (canextract <= 0)
+                    {
                         index.inc();
                         continue;
                     }
-                    if (canextract < toextract) {
+                    if (canextract < toextract)
+                    {
                         toextract = canextract;
                         stack = stack.copy();
                         stack.setCount(toextract);
                     }
                 }
 
-                List<Pair<SidedConsumer, ItemConnectorSettings>> inserted = new ArrayList<>();
-                int remaining = insertStackSimulate(inserted, context, stack);
-                if (!inserted.isEmpty()) {
-                    if (context.checkAndConsumeRF(ConfigSetup.controllerOperationRFT.get())) {
-                        insertStackReal(context, inserted, fetchItem(handler, false, extractMatcher, settings.getStackMode(), settings.getExtractAmount(), toextract-remaining, index, startIdx));
-                    }
-                    break;
-                } else {
-                    index.inc();
+                if (context.checkAndConsumeRF(ConfigSetup.controllerOperationRFT.get()))
+                {
+                    boolean transferred = transferStack(handler, stack, settings,  index, startIdx, context);
+                    if (transferred)
+                        index.inc();
                 }
-            } else {
+                else
+                    break;
+            }
+            else
+            {
                 break;
             }
         }
         return index.getSafe(handler.getSlots());
+    }
+
+    /**
+     * Returns if something was transferred
+     */
+    public boolean transferStack(@Nonnull IItemHandler from, @Nonnull ItemStack stack,
+                              ItemConnectorSettings extractSettings, MInteger index, int startIndex,
+                              @Nonnull IControllerContext context)
+    {
+        World world = context.getControllerWorld();
+        if (channelMode == ChannelMode.PRIORITY)
+            roundRobinOffset = 0;       // Always start at 0
+
+
+        int originalCount = stack.getCount();
+        for (int j = 0; j < itemConsumers.size(); j++)
+        {
+            int i = (j + roundRobinOffset) % itemConsumers.size();
+            Pair<SidedConsumer, ItemConnectorSettings> entry = itemConsumers.get(i);
+            ItemConnectorSettings insertSettings = entry.getValue();
+
+            if (!insertSettings.getMatcher().test(stack))
+                continue;
+            BlockPos consumerPos = context.findConsumerPosition(entry.getKey().getConsumerId());
+            if (consumerPos == null)
+                continue;
+            if (!WorldTools.chunkLoaded(world, consumerPos))
+                continue;
+            if (checkRedstone(world, insertSettings, consumerPos))
+                continue;
+            if (!context.matchColor(insertSettings.getColorsMask()))
+                continue;
+
+            EnumFacing side = entry.getKey().getSide();
+            BlockPos pos = consumerPos.offset(side);
+            TileEntity te = world.getTileEntity(pos);
+
+            int remaining;
+            if (ModSetup.rftools && RFToolsSupport.isStorageScanner(te))
+            {
+                remaining = insertToStorageScanner(from, te, stack, extractSettings, insertSettings, index, startIndex);
+            }
+            else
+            {
+                IItemHandler handler = getItemHandlerAt(te, insertSettings.getFacing());
+                if (handler == null)
+                    continue;
+
+                remaining = insertToHandler(from, handler, stack, extractSettings, insertSettings, index, startIndex);
+            }
+            if (originalCount != remaining)
+                roundRobinOffset = (roundRobinOffset + 1) % itemConsumers.size();
+            if (remaining <= 0)
+                return true;
+            stack.setCount(remaining);
+        }
+
+        return originalCount != stack.getCount();
+    }
+
+    /**
+     * Returns how many items remaining
+     */
+    public int insertToHandler(@Nonnull IItemHandler from, @Nonnull IItemHandler to, @Nonnull ItemStack stack,
+                               ItemConnectorSettings extractSettings, ItemConnectorSettings insertSettings,
+                               MInteger index, int startIndex)
+    {
+        Integer count = insertSettings.getCount();
+        int slots = to.getSlots();
+        int total = stack.getCount();
+        int toInsert = total;
+        if (count != null)
+        {
+            int amount = countItems(to, insertSettings.getMatcher());
+            int canInsert = count - amount;
+            if (canInsert <= 0)
+                return stack.getCount();
+
+            toInsert = Math.min(toInsert, canInsert);
+        }
+
+        ItemStack stackToInsert = stack.copy();
+        stackToInsert.setCount(toInsert);
+        for (int slot = 0; slot < slots; slot++)
+        {
+            ItemStack remaining = to.insertItem(slot, stackToInsert, true);
+            // Stack inserted successfully
+            // Quick identity check for handlers that return the same item, equal function can be expensive.
+            if (remaining != stackToInsert && !ItemStack.areItemStacksEqual(remaining, stackToInsert))
+            {
+                // Assume the result of both the extract and insert simulate is the same, otherwise... that mod's problem
+
+                // Extract the exact amount for real
+                int itemsInserted = toInsert - remaining.getCount();
+                ItemStack realInsert = fetchItem(from, false,
+                        extractSettings.getMatcher(),
+                        extractSettings.getStackMode(),
+                        extractSettings.getExtractAmount(),
+                        itemsInserted,
+                        index, startIndex);
+                // Insert for real
+                to.insertItem(slot, realInsert, false);
+
+                // We inserted as much as we wanted/could, finish
+                if (remaining.isEmpty() || (count != null && count == itemsInserted))
+                    return total - itemsInserted;
+
+            }
+            // We have leftover, keep going to next slots and try to insert it
+            stackToInsert = remaining;
+        }
+
+        return stackToInsert.getCount();
+    }
+
+    /**
+     * Returns how many items remaining
+     */
+    public int insertToStorageScanner(@Nonnull IItemHandler from, @Nonnull TileEntity to, @Nonnull ItemStack stack,
+                                      ItemConnectorSettings extractSettings, ItemConnectorSettings insertSettings,
+                                      MInteger index, int startIndex)
+    {
+        Integer count = insertSettings.getCount();
+        int total = stack.getCount();
+        int toInsert = total;
+        if (count != null)
+        {
+            int amount = RFToolsSupport.countItems(to, insertSettings.getMatcher(), count);
+            int canInsert = count - amount;
+            if (canInsert <= 0)
+                return stack.getCount();
+
+            toInsert = Math.min(toInsert, canInsert);
+        }
+
+        ItemStack stackToInsert = stack.copy();
+        stackToInsert.setCount(toInsert);
+
+        ItemStack remaining = RFToolsSupport.insertItem(to, stack, true);
+        // Stack didn't insert successfully
+        // Quick identity check for handlers that return the same item, equal function can be expensive.
+        if (remaining == stackToInsert && ItemStack.areItemStacksEqual(remaining, stackToInsert))
+            return remaining.getCount();
+
+        // Assume the result of both the extract and insert simulate is the same, otherwise... that mod's problem
+        // Extract the exact amount for real
+        int itemsInserted = toInsert - remaining.getCount();
+        ItemStack realInsert = fetchItem(from, false,
+                extractSettings.getMatcher(),
+                extractSettings.getStackMode(),
+                extractSettings.getExtractAmount(),
+                itemsInserted,
+                index, startIndex);
+        // Insert for real
+        RFToolsSupport.insertItem(to, realInsert, false);
+
+        return total - itemsInserted;
     }
 
     // Returns what could not be inserted
