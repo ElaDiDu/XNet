@@ -205,6 +205,8 @@ dependencies {
     //implementation(rfg.deobf("curse.maven:tx-loader-706505:4515357"))
     implementation("curse.maven:opencomputers-223008:6608365")
     implementation(rfg.deobf("curse.maven:interaction-wheel-256287:2441962"))
+    implementation(rfg.deobf("curse.maven:fluid-drawers-402338:3373954"))
+    implementation(rfg.deobf("curse.maven:libnine-322344:6790812"))
 }
 
 // Publishing to a Maven repository

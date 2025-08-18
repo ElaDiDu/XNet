@@ -40,10 +40,11 @@ public class FluidChannelSettings extends DefaultChannelSettings implements ICha
 
     public enum ChannelMode {
         PRIORITY,
+        ROUNDROBIN,
         DISTRIBUTE
     }
 
-    private ChannelMode channelMode = ChannelMode.DISTRIBUTE;
+    private ChannelMode channelMode = ChannelMode.PRIORITY;
     private int delay = 0;
     private int roundRobinOffset = 0;
 
@@ -83,84 +84,104 @@ public class FluidChannelSettings extends DefaultChannelSettings implements ICha
     }
 
     @Override
-    public void tick(int channel, IControllerContext context) {
+    public void tick(int channel, IControllerContext context)
+    {
         delay--;
-        if (delay <= 0) {
-            delay = 200*6;      // Multiply of the different speeds we have
+        if (delay <= 0)
+        {
+            delay = 200 * 6;      // Multiply of the different speeds we have
         }
-        if (delay % 10 != 0) {
+        if (delay % 10 != 0)
+        {
             return;
         }
-        int d = delay/10;
+        int d = delay / 10;
 
         updateCache(channel, context);
         // @todo optimize
         World world = context.getControllerWorld();
         extractorsLoop:
-        for (Map.Entry<SidedConsumer, FluidConnectorSettings> entry : fluidExtractors.entrySet()) {
+        for (Map.Entry<SidedConsumer, FluidConnectorSettings> entry : fluidExtractors.entrySet())
+        {
             FluidConnectorSettings settings = entry.getValue();
-            if (d % settings.getSpeed() != 0) {
+            if (d % settings.getSpeed() != 0)
+            {
                 continue;
             }
 
             BlockPos extractorPos = context.findConsumerPosition(entry.getKey().getConsumerId());
-            if (extractorPos != null) {
+            if (extractorPos != null)
+            {
                 EnumFacing side = entry.getKey().getSide();
                 BlockPos pos = extractorPos.offset(side);
-                if (!WorldTools.chunkLoaded(world, pos)) {
+                if (!WorldTools.chunkLoaded(world, pos))
+                {
                     continue;
                 }
 
                 TileEntity te = world.getTileEntity(pos);
                 IFluidHandler handler = getFluidHandlerAt(te, settings.getFacing());
                 // @todo report error somewhere?
-                if (handler != null) {
-                    if (checkRedstone(world, settings, extractorPos)) {
+                if (handler != null)
+                {
+                    if (checkRedstone(world, settings, extractorPos))
+                    {
                         continue;
                     }
-                    if (!context.matchColor(settings.getColorsMask())) {
+                    if (!context.matchColor(settings.getColorsMask()))
+                    {
                         continue;
                     }
 
                     FluidStack extractMatcher = settings.getMatcher();
 
-                    int toextract = settings.getRate();
+                    int toExtract = settings.getRate();
 
                     Integer count = settings.getMinmax();
-                    if (count != null) {
+                    if (count != null)
+                    {
                         int amount = countFluid(handler, extractMatcher);
-                        int canextract = amount-count;
-                        if (canextract <= 0) {
+                        int canextract = amount - count;
+                        if (canextract <= 0)
+                        {
                             continue;
                         }
-                        toextract = Math.min(toextract, canextract);
+                        toExtract = Math.min(toExtract, canextract);
                     }
 
                     List<Pair<SidedConsumer, FluidConnectorSettings>> inserted = new ArrayList<>();
-                    int remaining;
-                    do {
-                        // Imagine the pathological case where we're extracting from a container that works in 13mB
-                        // increments and inserting into a container that works in 17mB increments. We should end up
-                        // with toextract = 884 at the end of this loop, given that it started at 1000.
-                        FluidStack stack = fetchFluid(handler, true, extractMatcher, toextract);
-                        if (stack == null) continue extractorsLoop;
-                        toextract = stack.amount;
-                        inserted.clear();
-                        remaining = insertFluidSimulate(inserted, context, stack);
-                        toextract -= remaining;
-                        if (inserted.isEmpty() || toextract <= 0) continue extractorsLoop;
-                    } while(remaining > 0);
-                    if (context.checkAndConsumeRF(ConfigSetup.controllerOperationRFT.get())) {
-                        FluidStack stack = fetchFluid(handler, false, extractMatcher, toextract);
-                        if (stack == null) {
-                            throw new NullPointerException(handler.getClass().getName() + " misbehaved! handler.drain(" + toextract + ", true) returned null, even though handler.drain(" + toextract + ", false) did not");
+                    FluidStack stack = fetchFluid(handler, true, extractMatcher, toExtract);
+                    if (stack == null)
+                        continue;
+
+                    toExtract = stack.amount;
+                    if (channelMode == ChannelMode.DISTRIBUTE)
+                    {
+                        Map<Pair<SidedConsumer, FluidConnectorSettings>, Integer> fillPossible = new HashMap<>();
+                        int potentialFilled = getPossibleDistributeFills(fillPossible, context, stack);
+                        // Insert before fill to know true amount to extract, order shouldn't matter after all
+                        int extracted = fillDistribute(fillPossible, potentialFilled, context, stack);
+                        fetchFluid(handler, false, extractMatcher, extracted);
+                    }
+                    else
+                    {
+                        int remaining = insertFluidSimulate(inserted, context, stack);
+                        toExtract -= remaining;
+                        if (inserted.isEmpty() || toExtract <= 0)
+                            continue;
+                        if (context.checkAndConsumeRF(ConfigSetup.controllerOperationRFT.get()))
+                        {
+                            stack = fetchFluid(handler, false, extractMatcher, toExtract);
+                            if (stack == null)
+                            {
+                                throw new NullPointerException(handler.getClass().getName() + " misbehaved! handler.drain(" + toExtract + ", true) returned null, even though handler.drain(" + toExtract + ", false) did not");
+                            }
+                            insertFluidReal(context, inserted, stack);
                         }
-                        insertFluidReal(context, inserted, stack);
                     }
                 }
             }
         }
-
     }
 
 
@@ -173,6 +194,96 @@ public class FluidChannelSettings extends DefaultChannelSettings implements ICha
     private FluidStack fetchFluid(IFluidHandler handler, boolean simulate, @Nullable FluidStack matcher, int rate) {
         return handler.drain(rate, !simulate);
     }
+
+
+    private int getPossibleDistributeFills(Map<Pair<SidedConsumer, FluidConnectorSettings>, Integer> fillPossible,
+                                 @Nonnull IControllerContext context, @Nonnull FluidStack stack)
+    {
+        int filledOverall = 0;
+        World world = context.getControllerWorld();
+        int total = stack.amount;
+        for (int i = 0; i < fluidConsumers.size(); i++)
+        {
+            Pair<SidedConsumer, FluidConnectorSettings> entry = fluidConsumers.get(i);
+            FluidConnectorSettings settings = entry.getValue();
+
+            if (settings.getMatcher() == null || settings.getMatcher().equals(stack))
+            {
+                BlockPos consumerPos = context.findConsumerPosition(entry.getKey().getConsumerId());
+                if (consumerPos == null)
+                    continue;
+
+                if (!WorldTools.chunkLoaded(world, consumerPos))
+                    continue;
+                if (checkRedstone(world, settings, consumerPos))
+                    continue;
+                if (!context.matchColor(settings.getColorsMask()))
+                    continue;
+
+
+                EnumFacing side = entry.getKey().getSide();
+                BlockPos pos = consumerPos.offset(side);
+                TileEntity te = world.getTileEntity(pos);
+                IFluidHandler handler = getFluidHandlerAt(te, settings.getFacing());
+                if (handler == null)
+                    continue;
+
+                Integer count = settings.getMinmax();
+                int toInsert = Math.min(settings.getRate(), total);
+                if (count != null)
+                {
+                    int amount = countFluid(handler, settings.getMatcher());
+                    int canInsert = count - amount;
+                    if (canInsert <= 0)
+                        continue;
+                    toInsert = Math.min(toInsert, canInsert);
+                }
+
+                FluidStack copy = stack.copy();
+                copy.amount = toInsert;
+                int possible = handler.fill(copy, false);
+                if (possible < 0)
+                    continue;
+                filledOverall += possible;
+                fillPossible.put(entry, possible);
+            }
+        }
+
+        return filledOverall;
+
+    }
+    private int fillDistribute(Map<Pair<SidedConsumer, FluidConnectorSettings>, Integer> fillPossible, int filledOverall,
+                                @Nonnull IControllerContext context, @Nonnull FluidStack stack)
+    {
+        World world = context.getControllerWorld();
+        int total = stack.amount;
+        int amountExtracted = 0;
+        for (Map.Entry<Pair<SidedConsumer, FluidConnectorSettings>, Integer> entry : fillPossible.entrySet())
+        {
+            Pair<SidedConsumer, FluidConnectorSettings> consumerConnector = entry.getKey();
+            FluidConnectorSettings settings = consumerConnector.getValue();
+            BlockPos consumerPos = context.findConsumerPosition(consumerConnector.getKey().getConsumerId());
+            EnumFacing side = consumerConnector.getKey().getSide();
+            BlockPos pos = consumerPos.offset(side);
+            TileEntity te = world.getTileEntity(pos);
+            IFluidHandler handler = getFluidHandlerAt(te, settings.getFacing());
+
+            FluidStack copy = stack.copy();
+            int toInsert = (int)Math.ceil(copy.amount * ((double)entry.getValue() / filledOverall));
+            if (toInsert > total)
+                toInsert = total;
+            // Extracting too much (because of rounding) cap it to what's left
+            if (toInsert + amountExtracted > total)
+                toInsert = total - amountExtracted;
+
+            copy.amount = toInsert;
+            int filled = handler.fill(copy, true);
+            amountExtracted += filled;
+        }
+
+        return amountExtracted;
+    }
+
 
     // Returns what could not be filled
     private int insertFluidSimulate(@Nonnull List<Pair<SidedConsumer, FluidConnectorSettings>> inserted, @Nonnull IControllerContext context, @Nonnull FluidStack stack) {
@@ -281,8 +392,6 @@ public class FluidChannelSettings extends DefaultChannelSettings implements ICha
             }
         }
     }
-
-
 
     private void updateCache(int channel, IControllerContext context) {
         if (fluidExtractors == null) {
