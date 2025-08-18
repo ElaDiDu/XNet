@@ -13,6 +13,7 @@ import mcjty.xnet.api.helper.DefaultChannelSettings;
 import mcjty.xnet.apiimpl.EnumStringTranslators;
 import mcjty.xnet.api.keys.ConsumerId;
 import mcjty.xnet.api.keys.SidedConsumer;
+import mcjty.xnet.blocks.controller.TileEntityController;
 import mcjty.xnet.compat.RFToolsSupport;
 import mcjty.xnet.config.ConfigSetup;
 import mcjty.xnet.setup.ModSetup;
@@ -269,10 +270,13 @@ public class ItemChannelSettings extends DefaultChannelSettings implements IChan
                     }
                 }
 
+                // The API doesn't expose these functions separately...
                 if (context.checkAndConsumeRF(ConfigSetup.controllerOperationRFT.get()))
                 {
                     boolean transferred = transferStack(handler, stack, settings,  index, startIdx, context);
                     if (transferred)
+                        break;
+                    else
                         index.inc();
                 }
                 else
@@ -296,7 +300,6 @@ public class ItemChannelSettings extends DefaultChannelSettings implements IChan
         World world = context.getControllerWorld();
         if (channelMode == ChannelMode.PRIORITY)
             roundRobinOffset = 0;       // Always start at 0
-
 
         int originalCount = stack.getCount();
         for (int j = 0; j < itemConsumers.size(); j++)
@@ -634,6 +637,9 @@ public class ItemChannelSettings extends DefaultChannelSettings implements IChan
                         break;
                     case COUNT:
                         s = extractAmount;
+                        break;
+                    case HIGHEST:
+                        s = Integer.MAX_VALUE;
                         break;
                 }
                 s = Math.min(s, maxamount);

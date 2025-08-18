@@ -48,7 +48,8 @@ public class ItemConnectorSettings extends AbstractConnectorSettings {
     public enum StackMode {
         SINGLE,
         STACK,
-        COUNT
+        COUNT,
+        HIGHEST
     }
 
     public enum ExtractMode {
@@ -115,11 +116,11 @@ public class ItemConnectorSettings extends AbstractConnectorSettings {
         gui.nl()
                 .choices(TAG_MODE, "Insert or extract mode", itemMode, ItemMode.values())
                 .shift(5)
-                .choices(TAG_STACK, "Single item, stack, or count", stackMode, StackMode.values());
+                .choices(TAG_STACK, "Single item, stack, count or highest", stackMode, StackMode.values());
 
         if (stackMode == StackMode.COUNT && itemMode == ItemMode.EXT) {
             gui
-                    .integer(TAG_EXTRACT_AMOUNT, "Amount of items to extract|per operation", extractAmount, 30, 64);
+                    .integer(TAG_EXTRACT_AMOUNT, "Amount of items to extract|per operation", extractAmount, 30);
         }
 
         gui
