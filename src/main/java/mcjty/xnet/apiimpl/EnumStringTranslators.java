@@ -28,6 +28,7 @@ public class EnumStringTranslators {
     private static Map<String, LogicConnectorSettings.LogicMode> logicModeMap;
     private static Map<String, Sensor.SensorMode> sensorModeMap;
     private static Map<String, Sensor.Operator> operatorMap;
+    private static Map<String, FluidConnectorSettings.ExtractMode> fluidExtractMap;
 
     @Nullable
     public static Sensor.Operator getOperator(String mode) {
@@ -159,6 +160,19 @@ public class EnumStringTranslators {
             }
         }
         return stackModeMap.get(mode);
+    }
+
+    public static FluidConnectorSettings.ExtractMode getFluidExtractMode(String mode)
+    {
+        if (fluidExtractMap == null)
+        {
+            fluidExtractMap = new HashMap<>();
+            for (FluidConnectorSettings.ExtractMode value : FluidConnectorSettings.ExtractMode.values())
+            {
+                fluidExtractMap.put(value.name(), value);
+            }
+        }
+        return fluidExtractMap.get(mode);
     }
 
 }

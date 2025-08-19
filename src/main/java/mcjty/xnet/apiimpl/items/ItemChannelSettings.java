@@ -13,6 +13,7 @@ import mcjty.xnet.api.helper.DefaultChannelSettings;
 import mcjty.xnet.apiimpl.EnumStringTranslators;
 import mcjty.xnet.api.keys.ConsumerId;
 import mcjty.xnet.api.keys.SidedConsumer;
+import mcjty.xnet.apiimpl.MInteger;
 import mcjty.xnet.blocks.controller.TileEntityController;
 import mcjty.xnet.compat.RFToolsSupport;
 import mcjty.xnet.config.ConfigSetup;
@@ -116,32 +117,6 @@ public class ItemChannelSettings extends DefaultChannelSettings implements IChan
 
     private void rememberExtractIndex(ConsumerId consumer, int index) {
         extractIndices.put(consumer, index);
-    }
-
-    static class MInteger {
-        private int i;
-
-        public MInteger(int i) {
-            this.i = i;
-        }
-
-        // This can return an index out of bounds!
-        public int get() {
-            return i;
-        }
-
-        // Safe get that is always in bounds
-        public int getSafe(int bounds) {
-            return bounds <= 0 ? i : (i % bounds);
-        }
-
-        public void set(int i) {
-            this.i = i;
-        }
-
-        public void inc() {
-            i++;
-        }
     }
 
     private static Random random = new Random();

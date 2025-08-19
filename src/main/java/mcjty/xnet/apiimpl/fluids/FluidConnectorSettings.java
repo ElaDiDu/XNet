@@ -21,6 +21,7 @@ import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import java.util.Map;
 import java.util.Set;
+import java.util.function.Predicate;
 
 public class FluidConnectorSettings extends AbstractConnectorSettings {
 
@@ -32,6 +33,7 @@ public class FluidConnectorSettings extends AbstractConnectorSettings {
     public static final String TAG_PRIORITY = "priority";
     public static final String TAG_FILTER = "flt";
     public static final String TAG_SPEED = "speed";
+    public static final String TAG_EXTRACT = "extract";
 
 
     public enum FluidMode {
@@ -39,12 +41,19 @@ public class FluidConnectorSettings extends AbstractConnectorSettings {
         EXT
     }
 
-    private FluidMode fluidMode = FluidMode.INS;
+    public enum ExtractMode
+    {
+        FIRST,
+        RND,
+        ORDER
+    }
 
+    private FluidMode fluidMode = FluidMode.INS;
     @Nullable private Integer priority = 0;
     @Nullable private Integer rate = null;
     @Nullable private Integer minmax = null;
     private int speed = 2;
+    private ExtractMode extractMode = ExtractMode.FIRST;
 
     private ItemStack filter = ItemStack.EMPTY;
 
@@ -73,6 +82,11 @@ public class FluidConnectorSettings extends AbstractConnectorSettings {
     @Nullable
     public Integer getMinmax() {
         return minmax;
+    }
+
+    public ExtractMode getExtractMode()
+    {
+        return extractMode;
     }
 
     @Nullable
@@ -114,7 +128,10 @@ public class FluidConnectorSettings extends AbstractConnectorSettings {
                 .choices(TAG_SPEED, "Number of ticks for each operation", Integer.toString(speed * 10), speeds)
                 .nl()
 
-                .label("Pri").integer(TAG_PRIORITY, "Insertion priority", priority, 36).nl()
+                .label("Pri").integer(TAG_PRIORITY, "Insertion priority", priority, 36)
+                .shift(5)
+                .choices(TAG_EXTRACT, "Extract mode (first available,|random slot or round robin)", extractMode, ExtractMode.values())
+                .nl()
 
                 .label("Rate")
                 .integer(TAG_RATE, fluidMode == FluidMode.EXT ? "Fluid extraction rate|(max " + maxrate + "mb)" : "Fluid insertion rate|(max " + maxrate + "mb)", rate, 36, maxrate)
@@ -127,7 +144,7 @@ public class FluidConnectorSettings extends AbstractConnectorSettings {
     }
 
     private static Set<String> INSERT_TAGS = ImmutableSet.of(TAG_MODE, TAG_RS, TAG_COLOR+"0", TAG_COLOR+"1", TAG_COLOR+"2", TAG_COLOR+"3", TAG_RATE, TAG_MINMAX, TAG_PRIORITY, TAG_FILTER);
-    private static Set<String> EXTRACT_TAGS = ImmutableSet.of(TAG_MODE, TAG_RS, TAG_COLOR+"0", TAG_COLOR+"1", TAG_COLOR+"2", TAG_COLOR+"3", TAG_RATE, TAG_MINMAX, TAG_PRIORITY, TAG_FILTER, TAG_SPEED);
+    private static Set<String> EXTRACT_TAGS = ImmutableSet.of(TAG_MODE, TAG_RS, TAG_COLOR+"0", TAG_COLOR+"1", TAG_COLOR+"2", TAG_COLOR+"3", TAG_RATE, TAG_MINMAX, TAG_PRIORITY, TAG_FILTER, TAG_SPEED, TAG_EXTRACT);
 
     @Override
     public boolean isEnabled(String tag) {
@@ -138,19 +155,19 @@ public class FluidConnectorSettings extends AbstractConnectorSettings {
             return INSERT_TAGS.contains(tag);
         } else {
             if (tag.equals(TAG_FACING)) {
-                return false;           // We cannot extract from different sides
+                return advanced;
             }
             return EXTRACT_TAGS.contains(tag);
         }
     }
 
-    @Nullable
-    public FluidStack getMatcher() {
+    @Nonnull
+    public Predicate<FluidStack> getMatcher() {
         // @todo optimize/cache this?
         if (!filter.isEmpty()) {
-            return FluidTools.convertBucketToFluid(filter);
+            return (stack) -> stack.equals(FluidTools.convertBucketToFluid(filter));
         } else {
-            return null;
+            return (stack) -> true;
         }
     }
 
@@ -170,6 +187,7 @@ public class FluidConnectorSettings extends AbstractConnectorSettings {
         if (filter == null) {
             filter = ItemStack.EMPTY;
         }
+        extractMode = ExtractMode.valueOf(((String)data.get(TAG_EXTRACT)).toUpperCase());
     }
 
     @Override
@@ -190,6 +208,7 @@ public class FluidConnectorSettings extends AbstractConnectorSettings {
         if (speed == 1) {
             object.add("advancedneeded", new JsonPrimitive(true));
         }
+        setEnumSafe(object, "extractmode", extractMode);
         return object;
     }
 
@@ -206,6 +225,7 @@ public class FluidConnectorSettings extends AbstractConnectorSettings {
         } else {
             filter = ItemStack.EMPTY;
         }
+        extractMode = getEnumSafe(object, "extractmode", EnumStringTranslators::getFluidExtractMode);
     }
 
 
@@ -238,6 +258,12 @@ public class FluidConnectorSettings extends AbstractConnectorSettings {
         } else {
             filter = ItemStack.EMPTY;
         }
+        if (tag.hasKey("extractMode")) {
+            extractMode = ExtractMode.values()[tag.getByte("extractMode")];
+        }
+        else {
+            extractMode = ExtractMode.FIRST;
+        }
     }
 
     @Override
@@ -259,5 +285,6 @@ public class FluidConnectorSettings extends AbstractConnectorSettings {
             filter.writeToNBT(itemTag);
             tag.setTag("filter", itemTag);
         }
+        tag.setByte("extractMode", (byte) extractMode.ordinal());
     }
 }
