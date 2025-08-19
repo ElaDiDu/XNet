@@ -291,7 +291,8 @@ public class ItemChannelSettings extends DefaultChannelSettings implements IChan
     }
 
     /**
-     * Returns if something was transferred
+     * Alters input stack to its size after inserting.
+     * @return true if something was transferred
      */
     public boolean transferStack(@Nonnull IItemHandler from, @Nonnull ItemStack stack,
                               ItemConnectorSettings extractSettings, MInteger index, int startIndex,
@@ -339,8 +340,9 @@ public class ItemChannelSettings extends DefaultChannelSettings implements IChan
 
                 remaining = insertToHandler(from, handler, stack, extractSettings, insertSettings, index, startIndex);
             }
-            /*if (originalCount != remaining)
-                roundRobinOffset = (roundRobinOffset + 1) % itemConsumers.size();*/
+            // Round robin inserts to 1 inventory only
+            if (channelMode == ChannelMode.ROUNDROBIN && originalCount != remaining)
+                return true;
             if (remaining <= 0)
                 return true;
             stack.setCount(remaining);
