@@ -13,7 +13,7 @@ plugins {
 
 // Project properties
 group = "eladidu.xnet"
-version = "1.8.3"
+version = "1.8.4"
 
 // Set the toolchain version to decouple the Java we run Gradle with from the Java used to compile and run the mod
 java {
