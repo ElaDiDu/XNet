@@ -149,7 +149,7 @@ public class FluidChannelSettings extends DefaultChannelSettings implements ICha
                     continue;
 
                 int idx = getStartExtractIndex(settings, consumerId, handler);
-                idx = tickItemHandler(context, settings, handler, idx);
+                idx = tickFluidHandler(context, settings, handler, idx);
                 if (handler.getTankProperties().length > 0)
                 {
                     rememberExtractIndex(consumerId, (idx + 1) % handler.getTankProperties().length);
@@ -212,7 +212,7 @@ public class FluidChannelSettings extends DefaultChannelSettings implements ICha
         extractIndices.put(consumer, index);
     }
 
-    private int tickItemHandler(IControllerContext context, FluidConnectorSettings settings, IFluidHandler handler, int startIdx) {
+    private int tickFluidHandler(IControllerContext context, FluidConnectorSettings settings, IFluidHandler handler, int startIdx) {
         Predicate<FluidStack> extractMatcher = settings.getMatcher();
 
         Integer count = settings.getMinmax();
@@ -224,49 +224,40 @@ public class FluidChannelSettings extends DefaultChannelSettings implements ICha
             }
         }
 
-        MInteger index = new MInteger(startIdx);
-        while (true)
+        if (context.checkAndConsumeRF(ConfigSetup.controllerOperationRFT.get()))
         {
-            FluidStack stack = fetchFluid(handler, true, extractMatcher, settings.getRate(), index, startIdx);
-            if (stack != null)
+            int slots = handler.getTankProperties().length;
+            for (int i = startIdx; i < startIdx + slots; i++)
             {
-                // Now that we have a stack we first reduce the amount of the stack if we want to keep a certain
-                // number of items
-                int toextract = stack.amount;
-                if (count != null)
+                int idx = i % slots;
+                FluidStack stack = fetchFluid(handler, true, extractMatcher, settings.getRate(), idx);
+                if (stack != null)
                 {
-                    int canextract = amount - count;
-                    if (canextract <= 0)
+                    // Now that we have a stack we first reduce the amount of the stack if we want to keep a certain
+                    // number of items
+                    int toextract = stack.amount;
+                    if (count != null)
                     {
-                        index.inc();
-                        continue;
+                        int canextract = amount - count;
+                        if (canextract <= 0)
+                        {
+                            continue;
+                        }
+                        if (canextract < toextract)
+                        {
+                            toextract = canextract;
+                            stack = stack.copy();
+                            stack.amount = toextract;
+                        }
                     }
-                    if (canextract < toextract)
-                    {
-                        toextract = canextract;
-                        stack = stack.copy();
-                        stack.amount = toextract;
-                    }
-                }
 
-                // The API doesn't expose these functions separately...
-                if (context.checkAndConsumeRF(ConfigSetup.controllerOperationRFT.get()))
-                {
-                    boolean transferred = transferStack(handler, stack, settings,  index, startIdx, context);
+                    boolean transferred = transferStack(handler, stack, settings, idx, context);
                     if (transferred)
-                        break;
-                    else
-                        index.inc();
+                        return idx;
                 }
-                else
-                    break;
-            }
-            else
-            {
-                break;
             }
         }
-        return index.getSafe(handler.getTankProperties().length);
+        return startIdx;
     }
 
 
@@ -277,30 +268,34 @@ public class FluidChannelSettings extends DefaultChannelSettings implements ICha
     }
 
     @Nullable
-    private FluidStack fetchFluid(IFluidHandler handler, boolean simulate, Predicate<FluidStack> matcher , int extractAmount, MInteger index, int startIdx) {
+    private FluidStack fetchFluid(IFluidHandler handler, boolean simulate, Predicate<FluidStack> matcher , int extractAmount, int idx)
+    {
         IFluidTankProperties[] tanks = handler.getTankProperties();
         int slots = tanks.length;
-        if (slots == 0) {
+        if (slots == 0)
+        {
             return null;
         }
-        for (int i = index.get(); i < slots+startIdx ; i++) {
-            int j = i % slots;
-            FluidStack stack = tanks[j].getContents();
-            if (stack != null && tanks[j].canDrain()) {
-                // No need for a copy, it's already a copy from getContents().
-                stack.amount = extractAmount;
-                stack = handler.drain(stack, !simulate);
-                if (stack != null && matcher.test(stack)) {
-                    index.set(j);
-                    return stack;
-                }
+        FluidStack stack = tanks[idx].getContents();
+        if (stack != null && tanks[idx].canDrain())
+        {
+            // No need for a copy, it's already a copy from getContents().
+            stack.amount = extractAmount;
+            stack = handler.drain(stack, !simulate);
+            if (stack != null && matcher.test(stack))
+            {
+                return stack;
             }
         }
         return null;
     }
 
+    /**
+     * Alters input stack to its size after inserting.
+     * @return true if the index needs to be increased
+     */
     public boolean transferStack(@Nonnull IFluidHandler from, @Nonnull FluidStack stack,
-                                 FluidConnectorSettings extractSettings, MInteger index, int startIndex,
+                                 FluidConnectorSettings extractSettings, int extractIdx,
                                  @Nonnull IControllerContext context)
     {
         if (channelMode == ChannelMode.DISTRIBUTE)
@@ -314,12 +309,11 @@ public class FluidChannelSettings extends DefaultChannelSettings implements ICha
                 FluidStack realInsert = fetchFluid(from, false,
                         extractSettings.getMatcher(),
                         extracted,
-                        index, startIndex);
+                        extractIdx);
                 if (realInsert.amount != extracted)
                     throw new RuntimeException("Expected to extract " + extracted + " fluid but extracted " + realInsert.amount);
-                return true;
             }
-            return false;
+            return true;
         }
 
         World world = context.getControllerWorld();
@@ -356,7 +350,7 @@ public class FluidChannelSettings extends DefaultChannelSettings implements ICha
             if (handler == null)
                 continue;
 
-            int remaining = insertToHandler(from, handler, stack, extractSettings, insertSettings, index, startIndex);
+            int remaining = insertToHandler(from, handler, stack, extractSettings, insertSettings, extractIdx);
 
             // Round robin inserts to 1 inventory only
             if (channelMode == ChannelMode.ROUNDROBIN && originalCount != remaining)
@@ -374,7 +368,7 @@ public class FluidChannelSettings extends DefaultChannelSettings implements ICha
      */
     public int insertToHandler(@Nonnull IFluidHandler from, @Nonnull IFluidHandler to, @Nonnull FluidStack stack,
                                FluidConnectorSettings extractSettings, FluidConnectorSettings insertSettings,
-                               MInteger index, int startIndex)
+                               int extractIdx)
     {
         Integer count = insertSettings.getMinmax();
         int total = stack.amount;
@@ -401,7 +395,7 @@ public class FluidChannelSettings extends DefaultChannelSettings implements ICha
             FluidStack realInsert = fetchFluid(from, false,
                     extractSettings.getMatcher(),
                     filled,
-                    index, startIndex);
+                    extractIdx);
             // Insert for real
             to.fill(realInsert, true);
 
