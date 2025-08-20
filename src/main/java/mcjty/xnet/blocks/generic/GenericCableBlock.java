@@ -1,10 +1,8 @@
 package mcjty.xnet.blocks.generic;
 
-import com.jaquadro.minecraft.storagedrawers.block.BlockController;
 import mcjty.lib.McJtyRegister;
 import mcjty.lib.blocks.DamageMetadataItemBlock;
 import mcjty.lib.compat.theoneprobe.TOPInfoProvider;
-import mcjty.lib.compat.waila.WailaInfoProvider;
 import mcjty.theoneprobe.api.IProbeHitData;
 import mcjty.theoneprobe.api.IProbeInfo;
 import mcjty.theoneprobe.api.ProbeMode;
