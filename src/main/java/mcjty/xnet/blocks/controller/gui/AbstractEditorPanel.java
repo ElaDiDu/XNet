@@ -1,6 +1,5 @@
 package mcjty.xnet.blocks.controller.gui;
 
-import mcjty.lib.gui.events.BlockRenderEvent;
 import mcjty.lib.gui.layout.PositionalLayout;
 import mcjty.lib.gui.widgets.*;
 import mcjty.lib.typed.Key;
@@ -14,9 +13,11 @@ import net.minecraft.client.Minecraft;
 import net.minecraft.item.ItemStack;
 import net.minecraft.util.ResourceLocation;
 import org.apache.commons.lang3.StringUtils;
+import org.lwjgl.input.Keyboard;
 
 import java.util.HashMap;
 import java.util.Map;
+import java.util.Objects;
 
 public abstract class AbstractEditorPanel implements IEditorGui {
 
@@ -301,30 +302,13 @@ public abstract class AbstractEditorPanel implements IEditorGui {
     public IEditorGui ghostSlot(String tag, ItemStack stack) {
         int w = 16;
         fitWidth(w);
-        BlockRender blockRender = new BlockRender(mc, gui)
-                .setRenderItem(stack)
+        BlockRenderFilter blockRender = new BlockRenderFilter(mc, gui);
+        blockRender.setRenderItem(stack)
                 .setDesiredWidth(18).setDesiredHeight(18)
                 .setFilledRectThickness(-1).setFilledBackground(0xff888888);
-        blockRender.addSelectionEvent(new BlockRenderEvent() {
-            @Override
-            public void select(Widget widget) {
-                ItemStack holding = Minecraft.getMinecraft().player.inventory.getItemStack();
-                if (holding.isEmpty()) {
-                    update(tag, holding);
-                    blockRender.setRenderItem(null);
-                } else {
-                    ItemStack copy = holding.copy();
-                    copy.setCount(1);
-                    blockRender.setRenderItem(copy);
-                    update(tag, copy);
-                }
-            }
+        blockRender.setOnClick(button -> clickOnItemFilter(button, tag, blockRender));
+        blockRender.setOnMouseWheel(amount -> wheelOnItemFilter(amount, tag, blockRender));
 
-            @Override
-            public void doubleClick(Widget widget) {
-
-            }
-        });
         blockRender.setLayoutHint(new PositionalLayout.PositionalHint(x, y-1, 17, 17));
         data.put(tag, stack);
         panel.addChild(blockRender);
@@ -338,5 +322,124 @@ public abstract class AbstractEditorPanel implements IEditorGui {
         y += 16;
         x = LEFTMARGIN;
         return this;
+    }
+
+    private void clickOnItemFilter(int button, String tag, BlockRenderFilter blockRender)
+    {
+        ItemStack holding = Minecraft.getMinecraft().player.inventory.getItemStack();
+        // Click with empty hand
+        if (holding.isEmpty())
+        {
+            // Require alt or shift to alter the stack instead of deleting it
+            if (Keyboard.isKeyDown(Keyboard.KEY_LMENU) || Keyboard.isKeyDown(Keyboard.KEY_RMENU) || Keyboard.isKeyDown(Keyboard.KEY_LSHIFT) || Keyboard.isKeyDown(Keyboard.KEY_RSHIFT))
+            {
+                if (button == 0)
+                {
+                    Object renderItem = blockRender.getRenderItem();
+                    if (renderItem instanceof ItemStack currStack)
+                    {
+                        alterStackCount(currStack, true);
+                        if (currStack.getCount() <= 0)
+                        {
+                            update(tag, ItemStack.EMPTY);
+                            blockRender.setRenderItem(null);
+                        } else
+                        {
+                            update(tag, currStack);
+                            blockRender.setRenderItem(currStack);
+                        }
+                    }
+                }
+                else if (button == 1)
+                {
+                    Object renderItem = blockRender.getRenderItem();
+                    if (renderItem instanceof ItemStack currStack)
+                    {
+                        alterStackCount(currStack, false);
+                        if (currStack.getCount() <= 0)
+                        {
+                            update(tag, ItemStack.EMPTY);
+                            blockRender.setRenderItem(null);
+                        } else
+                        {
+                            update(tag, currStack);
+                            blockRender.setRenderItem(currStack);
+                        }
+                    }
+                }
+            }
+            else
+            {
+                // Delete stack
+                update(tag, ItemStack.EMPTY);
+                blockRender.setRenderItem(null);
+            }
+        }
+        else
+        {
+            Object renderItem = blockRender.getRenderItem();
+            // Holding the same stack as the filter, add/remove the filter count
+            if (renderItem instanceof ItemStack currStack &&
+                    holding.getItem() == currStack.getItem() && holding.getMetadata() == currStack.getMetadata() &&
+                    Objects.equals(holding.getTagCompound(), currStack.getTagCompound()))
+            {
+                if (button == 0)
+                    alterStackCount(currStack, true);
+                else if (button == 1)
+                    alterStackCount(currStack, false);
+
+                if (currStack.getCount() <= 0)
+                {
+                    update(tag, ItemStack.EMPTY);
+                    blockRender.setRenderItem(null);
+                }
+                else
+                {
+                    update(tag, currStack);
+                    blockRender.setRenderItem(currStack);
+                }
+            }
+            else
+            {
+                // Holding different stack, replace filter with it
+                ItemStack copy = holding.copy();
+                update(tag, copy);
+                blockRender.setRenderItem(copy);
+            }
+        }
+    }
+
+    private void wheelOnItemFilter(int amount, String tag, BlockRenderFilter blockRender)  {
+        ItemStack stack = (ItemStack) blockRender.getRenderItem();
+        if (stack == null)
+            return;
+
+        alterStackCount(stack, amount > 0);
+        if (stack.getCount() <= 0)
+        {
+            update(tag, ItemStack.EMPTY);
+            blockRender.setRenderItem(null);
+        }
+        else
+        {
+            update(tag, stack);
+            blockRender.setRenderItem(stack);
+        }
+    }
+
+    private void alterStackCount(ItemStack stack, boolean increase)
+    {
+        int newCount = stack.getCount();
+        if (Keyboard.isKeyDown(Keyboard.KEY_LCONTROL) || Keyboard.isKeyDown(Keyboard.KEY_RCONTROL))
+        {
+            if (increase) newCount *= 2;
+            else newCount /= 2;
+        }
+        else
+        {
+            if (increase) newCount++;
+            else newCount--;
+        }
+        stack.setCount(newCount);
     }
 }

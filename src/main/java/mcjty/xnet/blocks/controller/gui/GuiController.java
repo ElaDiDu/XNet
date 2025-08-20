@@ -162,7 +162,7 @@ public class GuiController extends GenericGuiContainer<TileEntityController> {
         if (c != null) {
             XNet.instance.clientInfo.hilightBlock(c.getPos().getPos(), System.currentTimeMillis() + 1000 * 5);
             Logging.message(mc.player, "The block is now highlighted");
-            mc.player.closeScreen();
+            //mc.player.closeScreen();
         }
     }
 

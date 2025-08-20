@@ -13,7 +13,6 @@ import mcjty.xnet.api.helper.DefaultChannelSettings;
 import mcjty.xnet.apiimpl.EnumStringTranslators;
 import mcjty.xnet.api.keys.ConsumerId;
 import mcjty.xnet.api.keys.SidedConsumer;
-import mcjty.xnet.apiimpl.MInteger;
 import mcjty.xnet.compat.RFToolsSupport;
 import mcjty.xnet.config.ConfigSetup;
 import mcjty.xnet.setup.ModSetup;
@@ -341,11 +340,17 @@ public class ItemChannelSettings extends DefaultChannelSettings implements IChan
             int amount = countItems(to, insertSettings.getMatcher());
             int canInsert = count - amount;
             if (canInsert <= 0)
-                return stack.getCount();
+                return total;
 
             toInsert = Math.min(toInsert, canInsert);
         }
+        if (!insertSettings.isBlacklist() && insertSettings.isCountMode())
+        {
+            toInsert = Math.min(toInsert, insertSettings.itemsNeededToSatisfyFilter(to, stack));
+        }
 
+        if (toInsert <= 0)
+            return total;
         ItemStack stackToInsert = stack.copy();
         stackToInsert.setCount(toInsert);
         for (int slot = 0; slot < slots; slot++)

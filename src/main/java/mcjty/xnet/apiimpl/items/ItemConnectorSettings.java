@@ -14,6 +14,7 @@ import net.minecraft.item.ItemStack;
 import net.minecraft.nbt.NBTTagCompound;
 import net.minecraft.util.EnumFacing;
 import net.minecraft.util.ResourceLocation;
+import net.minecraftforge.items.IItemHandler;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
@@ -37,6 +38,7 @@ public class ItemConnectorSettings extends AbstractConnectorSettings {
     public static final String TAG_COUNT = "count";
     public static final String TAG_FILTER = "flt";
     public static final String TAG_BLACKLIST = "blacklist";
+    public static final String TAG_COUNTMODE = "countmode";
 
     public static final int FILTER_SIZE = 18;
 
@@ -66,6 +68,7 @@ public class ItemConnectorSettings extends AbstractConnectorSettings {
     private boolean metaMode = false;
     private boolean nbtMode = false;
     private boolean blacklist = false;
+    private boolean countMode = false;
     @Nullable private Integer priority = 0;
     @Nullable private Integer count = null;
     @Nullable private Integer extractAmount = null;
@@ -73,6 +76,7 @@ public class ItemConnectorSettings extends AbstractConnectorSettings {
 
     // Cached matcher for items
     private Predicate<ItemStack> matcher = null;
+    private ItemFilterCache itemFilterCache = null;
 
     public ItemMode getItemMode() {
         return itemMode;
@@ -145,7 +149,8 @@ public class ItemConnectorSettings extends AbstractConnectorSettings {
                 .toggleText(TAG_BLACKLIST, "Enable blacklist mode", "BL", blacklist).shift(2)
                 .toggleText(TAG_OREDICT, "Ore dictionary matching", "Ore", oredictMode).shift(2)
                 .toggleText(TAG_META, "Metadata matching", "Meta", metaMode).shift(2)
-                .toggleText(TAG_NBT, "NBT matching", "NBT", nbtMode)
+                .toggleText(TAG_NBT, "NBT matching", "NBT", nbtMode).shift(2)
+                .toggleText(TAG_COUNTMODE, "Count limit per item filter", "Count", countMode)
                 .nl();
         for (int i = 0 ; i < FILTER_SIZE ; i++) {
             gui.ghostSlot(TAG_FILTER + i, filters.get(i));
@@ -162,18 +167,43 @@ public class ItemConnectorSettings extends AbstractConnectorSettings {
             }
             if (filterList.isEmpty()) {
                 matcher = itemStack -> true;
+                itemFilterCache = null;
             } else {
                 ItemFilterCache filterCache = new ItemFilterCache(metaMode, oredictMode, blacklist, nbtMode, filterList);
                 matcher = filterCache::match;
+                itemFilterCache = filterCache;
             }
         }
         return matcher;
     }
 
+    public int itemsNeededToSatisfyFilter(IItemHandler handler, ItemStack stack)
+    {
+        if (matcher == null) {
+            ItemStackList filterList = ItemStackList.create();
+            for (ItemStack filterStack : filters) {
+                if (!filterStack.isEmpty()) {
+                    filterList.add(filterStack);
+                }
+            }
+            if (filterList.isEmpty()) {
+                matcher = itemStack -> true;
+                itemFilterCache = null;
+            } else {
+                ItemFilterCache filterCache = new ItemFilterCache(metaMode, oredictMode, blacklist, nbtMode, filterList);
+                matcher = filterCache::match;
+                itemFilterCache = filterCache;
+            }
+        }
+        if (itemFilterCache == null)
+            return Integer.MAX_VALUE;
+
+        return itemFilterCache.itemsNeededToSatisfyFilter(handler, stack);
+    }
+
     public StackMode getStackMode() {
         return stackMode;
     }
-
 
     public ExtractMode getExtractMode() {
         return extractMode;
@@ -197,8 +227,18 @@ public class ItemConnectorSettings extends AbstractConnectorSettings {
         return speed;
     }
 
-    private static final Set<String> INSERT_TAGS = ImmutableSet.of(TAG_MODE, TAG_RS, TAG_COLOR+"0", TAG_COLOR+"1", TAG_COLOR+"2", TAG_COLOR+"3", TAG_COUNT, TAG_PRIORITY, TAG_OREDICT, TAG_META, TAG_NBT, TAG_BLACKLIST);
-    private static final Set<String> EXTRACT_TAGS = ImmutableSet.of(TAG_MODE, TAG_RS, TAG_COLOR+"0", TAG_COLOR+"1", TAG_COLOR+"2", TAG_COLOR+"3", TAG_COUNT, TAG_OREDICT, TAG_META, TAG_NBT, TAG_BLACKLIST, TAG_STACK, TAG_SPEED, TAG_EXTRACT, TAG_EXTRACT_AMOUNT);
+    public boolean isBlacklist()
+    {
+        return blacklist;
+    }
+
+    public boolean isCountMode()
+    {
+        return countMode;
+    }
+
+    private static final Set<String> INSERT_TAGS = ImmutableSet.of(TAG_MODE, TAG_RS, TAG_COLOR+"0", TAG_COLOR+"1", TAG_COLOR+"2", TAG_COLOR+"3", TAG_COUNT, TAG_PRIORITY, TAG_OREDICT, TAG_META, TAG_NBT, TAG_BLACKLIST, TAG_COUNTMODE);
+    private static final Set<String> EXTRACT_TAGS = ImmutableSet.of(TAG_MODE, TAG_RS, TAG_COLOR+"0", TAG_COLOR+"1", TAG_COLOR+"2", TAG_COLOR+"3", TAG_COUNT, TAG_OREDICT, TAG_META, TAG_NBT, TAG_BLACKLIST, TAG_STACK, TAG_SPEED, TAG_EXTRACT, TAG_EXTRACT_AMOUNT, TAG_COUNTMODE);
 
     @Override
     public boolean isEnabled(String tag) {
@@ -233,6 +273,7 @@ public class ItemConnectorSettings extends AbstractConnectorSettings {
         oredictMode = Boolean.TRUE.equals(data.get(TAG_OREDICT));
         metaMode = Boolean.TRUE.equals(data.get(TAG_META));
         nbtMode = Boolean.TRUE.equals(data.get(TAG_NBT));
+        countMode = Boolean.TRUE.equals(data.get(TAG_COUNTMODE));
 
         blacklist = Boolean.TRUE.equals(data.get(TAG_BLACKLIST));
         priority = (Integer) data.get(TAG_PRIORITY);
@@ -255,6 +296,7 @@ public class ItemConnectorSettings extends AbstractConnectorSettings {
         object.add("metamode", new JsonPrimitive(metaMode));
         object.add("nbtmode", new JsonPrimitive(nbtMode));
         object.add("blacklist", new JsonPrimitive(blacklist));
+        object.add("countmode", new JsonPrimitive(countMode));
         setIntegerSafe(object, "priority", priority);
         setIntegerSafe(object, "extractamount", extractAmount);
         setIntegerSafe(object, "count", count);
@@ -281,6 +323,7 @@ public class ItemConnectorSettings extends AbstractConnectorSettings {
         metaMode = getBoolSafe(object, "metamode");
         nbtMode = getBoolSafe(object, "nbtmode");
         blacklist = getBoolSafe(object, "blacklist");
+        countMode = getBoolSafe(object, "countmode");
         priority = getIntegerSafe(object, "priority");
         extractAmount = getIntegerSafe(object, "extractamount");
         count = getIntegerSafe(object, "count");
@@ -315,6 +358,7 @@ public class ItemConnectorSettings extends AbstractConnectorSettings {
         metaMode = tag.getBoolean("metaMode");
         nbtMode = tag.getBoolean("nbtMode");
         blacklist = tag.getBoolean("blacklist");
+        countMode = tag.getBoolean("countMode");
         if (tag.hasKey("priority")) {
             priority = tag.getInteger("priority");
         } else {
@@ -333,7 +377,13 @@ public class ItemConnectorSettings extends AbstractConnectorSettings {
         for (int i = 0 ; i < FILTER_SIZE ; i++) {
             if (tag.hasKey("filter" + i)) {
                 NBTTagCompound itemTag = tag.getCompoundTag("filter" + i);
-                filters.set(i, new ItemStack(itemTag));
+                ItemStack stack = new ItemStack(itemTag);
+                int count = itemTag.getInteger("countInt");
+                // Compat check for old version
+                if (count == 0)
+                    count = 1;
+                stack.setCount(count);
+                filters.set(i, stack);
             } else {
                 filters.set(i, ItemStack.EMPTY);
             }
@@ -352,6 +402,7 @@ public class ItemConnectorSettings extends AbstractConnectorSettings {
         tag.setBoolean("metaMode", metaMode);
         tag.setBoolean("nbtMode", nbtMode);
         tag.setBoolean("blacklist", blacklist);
+        tag.setBoolean("countMode", countMode);
         if (priority != null) {
             tag.setInteger("priority", priority);
         }
@@ -365,6 +416,7 @@ public class ItemConnectorSettings extends AbstractConnectorSettings {
             if (!filters.get(i).isEmpty()) {
                 NBTTagCompound itemTag = new NBTTagCompound();
                 filters.get(i).writeToNBT(itemTag);
+                itemTag.setInteger("countInt", filters.get(i).getCount());
                 tag.setTag("filter" + i, itemTag);
             }
         }
