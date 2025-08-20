@@ -312,8 +312,9 @@ public class FluidChannelSettings extends DefaultChannelSettings implements ICha
                         extractIdx);
                 if (realInsert.amount != extracted)
                     throw new RuntimeException("Expected to extract " + extracted + " fluid but extracted " + realInsert.amount);
+                return true;
             }
-            return true;
+            return false;
         }
 
         World world = context.getControllerWorld();
