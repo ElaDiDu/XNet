@@ -194,8 +194,15 @@ dependencies {
     //implementation(rfg.deobf("curse.maven:tx-loader-706505:4515357"))
     implementation("curse.maven:opencomputers-223008:6608365")
     implementation(rfg.deobf("curse.maven:interaction-wheel-256287:2441962"))
+
     implementation(rfg.deobf("curse.maven:fluid-drawers-402338:3373954"))
     implementation(rfg.deobf("curse.maven:libnine-322344:6790812"))
+
+    implementation(rfg.deobf("curse.maven:CodeChickenLib-242818:2779848"))
+    implementation(rfg.deobf("curse.maven:cofhcore-69162:2920433"))
+    implementation(rfg.deobf("curse.maven:cofhworld-271384:2920434"))
+    implementation(rfg.deobf("curse.maven:thermal-69163:2926431"))
+    implementation(rfg.deobf("curse.maven:thermalfoundation-222880:2926428"))
 }
 
 // Publishing to a Maven repository
