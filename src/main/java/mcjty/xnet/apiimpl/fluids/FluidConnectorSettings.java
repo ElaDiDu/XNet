@@ -4,6 +4,7 @@ import com.google.common.collect.ImmutableSet;
 import com.google.gson.JsonObject;
 import com.google.gson.JsonPrimitive;
 import mcjty.lib.varia.FluidTools;
+import mcjty.lib.varia.ItemStackList;
 import mcjty.lib.varia.ItemStackTools;
 import mcjty.xnet.XNet;
 import mcjty.xnet.api.gui.IEditorGui;
@@ -35,6 +36,7 @@ public class FluidConnectorSettings extends AbstractConnectorSettings {
     public static final String TAG_SPEED = "speed";
     public static final String TAG_EXTRACT = "extract";
 
+    public static final int FILTER_SIZE = 18;
 
     public enum FluidMode {
         INS,
@@ -55,7 +57,9 @@ public class FluidConnectorSettings extends AbstractConnectorSettings {
     private int speed = 2;
     private ExtractMode extractMode = ExtractMode.FIRST;
 
-    private ItemStack filter = ItemStack.EMPTY;
+    private ItemStackList filters = ItemStackList.create(FILTER_SIZE);
+
+    private Predicate<FluidStack> matcher = null;
 
     public FluidConnectorSettings(@Nonnull EnumFacing side) {
         super(side);
@@ -138,16 +142,20 @@ public class FluidConnectorSettings extends AbstractConnectorSettings {
                 .shift(10)
                 .label(fluidMode == FluidMode.EXT ? "Min" : "Max")
                 .integer(TAG_MINMAX, fluidMode == FluidMode.EXT ? "Keep this amount of|fluid in tank" : "Disable insertion if|fluid level is too high", minmax, 36)
-                .nl()
-                .label("Filter")
-                .ghostSlot(TAG_FILTER, filter);
+                .nl();
+        for (int i = 0 ; i < FILTER_SIZE; i++) {
+            gui.ghostSlot(TAG_FILTER + i, filters.get(i));
+        }
     }
 
-    private static Set<String> INSERT_TAGS = ImmutableSet.of(TAG_MODE, TAG_RS, TAG_COLOR+"0", TAG_COLOR+"1", TAG_COLOR+"2", TAG_COLOR+"3", TAG_RATE, TAG_MINMAX, TAG_PRIORITY, TAG_FILTER);
-    private static Set<String> EXTRACT_TAGS = ImmutableSet.of(TAG_MODE, TAG_RS, TAG_COLOR+"0", TAG_COLOR+"1", TAG_COLOR+"2", TAG_COLOR+"3", TAG_RATE, TAG_MINMAX, TAG_PRIORITY, TAG_FILTER, TAG_SPEED, TAG_EXTRACT);
+    private static Set<String> INSERT_TAGS = ImmutableSet.of(TAG_MODE, TAG_RS, TAG_COLOR+"0", TAG_COLOR+"1", TAG_COLOR+"2", TAG_COLOR+"3", TAG_RATE, TAG_MINMAX, TAG_PRIORITY);
+    private static Set<String> EXTRACT_TAGS = ImmutableSet.of(TAG_MODE, TAG_RS, TAG_COLOR+"0", TAG_COLOR+"1", TAG_COLOR+"2", TAG_COLOR+"3", TAG_RATE, TAG_MINMAX, TAG_PRIORITY, TAG_SPEED, TAG_EXTRACT);
 
     @Override
     public boolean isEnabled(String tag) {
+        if (tag.startsWith(TAG_FILTER)) {
+            return true;
+        }
         if (fluidMode == FluidMode.INS) {
             if (tag.equals(TAG_FACING)) {
                 return advanced;
@@ -162,11 +170,37 @@ public class FluidConnectorSettings extends AbstractConnectorSettings {
     }
 
     @Nonnull
-    public Predicate<FluidStack> getMatcher() {
+    public Predicate<FluidStack> getMatcher()
+    {
+        if (matcher != null)
+            return matcher;
+
         // @todo optimize/cache this?
-        if (!filter.isEmpty()) {
-            return (stack) -> stack.equals(FluidTools.convertBucketToFluid(filter));
-        } else {
+        if (!filters.isEmpty())
+        {
+            ItemStackList filterList = ItemStackList.create();
+            for (ItemStack filterStack : filters)
+            {
+                if (!filterStack.isEmpty())
+                    filterList.add(filterStack);
+            }
+            if (filterList.isEmpty())
+                matcher = fluidStack -> true;
+            else
+            {
+                matcher = fluidStack ->
+                {
+                    for (ItemStack filterStack : filterList)
+                        if (fluidStack.equals(FluidTools.convertBucketToFluid(filterStack)))
+                            return true;
+                    return false;
+                };
+            }
+
+            return matcher;
+        }
+        else
+        {
             return (stack) -> true;
         }
     }
@@ -183,11 +217,12 @@ public class FluidConnectorSettings extends AbstractConnectorSettings {
         if (speed == 0) {
             speed = 2;
         }
-        filter = (ItemStack) data.get(TAG_FILTER);
-        if (filter == null) {
-            filter = ItemStack.EMPTY;
-        }
         extractMode = ExtractMode.valueOf(((String)data.get(TAG_EXTRACT)).toUpperCase());
+        for (int i = 0; i < FILTER_SIZE; i++)
+        {
+            filters.set(i, (ItemStack) data.get(TAG_FILTER + i));
+        }
+        matcher = null;
     }
 
     @Override
@@ -199,8 +234,12 @@ public class FluidConnectorSettings extends AbstractConnectorSettings {
         setIntegerSafe(object, "rate", rate);
         setIntegerSafe(object, "minmax", minmax);
         setIntegerSafe(object, "speed", speed);
-        if (!filter.isEmpty()) {
-            object.add("filter", ItemStackTools.itemStackToJson(filter));
+        for (int i = 0; i < FILTER_SIZE; i++)
+        {
+            if (!filters.get(i).isEmpty())
+            {
+                object.add("filter" + i, ItemStackTools.itemStackToJson(filters.get(i)));
+            }
         }
         if (rate != null && rate > ConfigSetup.maxFluidRateNormal.get()) {
             object.add("advancedneeded", new JsonPrimitive(true));
@@ -220,49 +259,83 @@ public class FluidConnectorSettings extends AbstractConnectorSettings {
         rate = getIntegerSafe(object, "rate");
         minmax = getIntegerSafe(object, "minmax");
         speed = getIntegerNotNull(object, "speed");
-        if (object.has("filter")) {
-            filter = ItemStackTools.jsonToItemStack(object.get("filter").getAsJsonObject());
-        } else {
-            filter = ItemStack.EMPTY;
+        for (int i = 0 ; i < FILTER_SIZE ; i++)
+        {
+            if (object.has("filter" + i))
+            {
+                filters.set(i, ItemStackTools.jsonToItemStack(object.get("filter" + i).getAsJsonObject()));
+            } else
+            {
+                filters.set(i, ItemStack.EMPTY);
+            }
         }
         extractMode = getEnumSafe(object, "extractmode", EnumStringTranslators::getFluidExtractMode);
+        matcher = null;
     }
 
 
     @Override
-    public void readFromNBT(NBTTagCompound tag) {
+    public void readFromNBT(NBTTagCompound tag)
+    {
         super.readFromNBT(tag);
         fluidMode = FluidMode.values()[tag.getByte("fluidMode")];
-        if (tag.hasKey("priority")) {
+        if (tag.hasKey("priority"))
+        {
             priority = tag.getInteger("priority");
-        } else {
+        } else
+        {
             priority = null;
         }
-        if (tag.hasKey("rate")) {
+        if (tag.hasKey("rate"))
+        {
             rate = tag.getInteger("rate");
-        } else {
+        } else
+        {
             rate = null;
         }
-        if (tag.hasKey("minmax")) {
+        if (tag.hasKey("minmax"))
+        {
             minmax = tag.getInteger("minmax");
-        } else {
+        } else
+        {
             minmax = null;
         }
         speed = tag.getInteger("speed");
-        if (speed == 0) {
+        if (speed == 0)
+        {
             speed = 2;
         }
-        if (tag.hasKey("filter")) {
+        // Old 1 item filter check for compat
+        if (tag.hasKey("filter"))
+        {
             NBTTagCompound itemTag = tag.getCompoundTag("filter");
-            filter = new ItemStack(itemTag);
-        } else {
-            filter = ItemStack.EMPTY;
+            filters.set(0, new ItemStack(itemTag));
+            for (int i = 1; i < FILTER_SIZE; i++)
+                filters.set(i, ItemStack.EMPTY);
         }
-        if (tag.hasKey("extractMode")) {
-            extractMode = ExtractMode.values()[tag.getByte("extractMode")];
-        }
-        else {
-            extractMode = ExtractMode.FIRST;
+        else
+        {
+            for (int i = 0; i < FILTER_SIZE; i++)
+            {
+                if (tag.hasKey("filter" + i))
+                {
+                    NBTTagCompound itemTag = tag.getCompoundTag("filter" + i);
+                    ItemStack stack = new ItemStack(itemTag);
+                    filters.set(i, stack);
+                }
+                else
+                {
+                    filters.set(i, ItemStack.EMPTY);
+                }
+            }
+            if (tag.hasKey("extractMode"))
+            {
+                extractMode = ExtractMode.values()[tag.getByte("extractMode")];
+            }
+            else
+            {
+                extractMode = ExtractMode.FIRST;
+            }
         }
     }
 
@@ -280,10 +353,12 @@ public class FluidConnectorSettings extends AbstractConnectorSettings {
             tag.setInteger("minmax", minmax);
         }
         tag.setInteger("speed", speed);
-        if (!filter.isEmpty()) {
-            NBTTagCompound itemTag = new NBTTagCompound();
-            filter.writeToNBT(itemTag);
-            tag.setTag("filter", itemTag);
+        for (int i = 0 ; i < FILTER_SIZE ; i++) {
+            if (!filters.get(i).isEmpty()) {
+                NBTTagCompound itemTag = new NBTTagCompound();
+                filters.get(i).writeToNBT(itemTag);
+                tag.setTag("filter" + i, itemTag);
+            }
         }
         tag.setByte("extractMode", (byte) extractMode.ordinal());
     }
