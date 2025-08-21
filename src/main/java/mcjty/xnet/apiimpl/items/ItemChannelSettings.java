@@ -232,31 +232,34 @@ public class ItemChannelSettings extends DefaultChannelSettings implements IChan
                         settings.getExtractAmount(),
                         Integer.MAX_VALUE,
                         idx);
-                if (!stack.isEmpty())
+                if (stack.isEmpty())
+                    continue;
+                // Exact mode doesn't allow stacks smaller than count
+                if (settings.getStackMode() == ItemConnectorSettings.StackMode.COUNTE && stack.getCount() < settings.getExtractAmount())
+                    continue;
+
+                // Now that we have a stack we first reduce the amount of the stack if we want to keep a certain
+                // number of items
+                int toextract = stack.getCount();
+                if (count != null)
                 {
-                    // Now that we have a stack we first reduce the amount of the stack if we want to keep a certain
-                    // number of items
-                    int toextract = stack.getCount();
-                    if (count != null)
+                    int canextract = amount - count;
+                    if (canextract <= 0)
                     {
-                        int canextract = amount - count;
-                        if (canextract <= 0)
-                        {
-                            continue;
-                        }
-                        if (canextract < toextract)
-                        {
-                            toextract = canextract;
-                            stack = stack.copy();
-                            stack.setCount(toextract);
-                        }
+                        continue;
                     }
-
-
-                    boolean transferred = transferStack(handler, stack, settings, idx, context);
-                    if (transferred)
-                        return idx;
+                    if (canextract < toextract)
+                    {
+                        toextract = canextract;
+                        stack = stack.copy();
+                        stack.setCount(toextract);
+                    }
                 }
+
+                boolean transferred = transferStack(handler, stack, settings, idx, context);
+                if (transferred)
+                    return idx;
+
             }
         }
 
@@ -620,7 +623,8 @@ public class ItemChannelSettings extends DefaultChannelSettings implements IChan
                 case STACK:
                     s = stack.getMaxStackSize();
                     break;
-                case COUNT:
+                case COUNTM:
+                case COUNTE:
                     s = extractAmount;
                     break;
                 case HIGHEST:

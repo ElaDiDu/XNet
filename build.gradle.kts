@@ -192,7 +192,7 @@ dependencies {
     implementation(rfg.deobf("curse.maven:storage-drawers-223852:5981297"))
     implementation(rfg.deobf("curse.maven:chameleon-230497:2450900"))
     //implementation(rfg.deobf("curse.maven:tx-loader-706505:4515357"))
-    implementation("curse.maven:opencomputers-223008:6608365")
+    //implementation("curse.maven:opencomputers-223008:6608365")
     implementation(rfg.deobf("curse.maven:interaction-wheel-256287:2441962"))
 
     implementation(rfg.deobf("curse.maven:fluid-drawers-402338:3373954"))

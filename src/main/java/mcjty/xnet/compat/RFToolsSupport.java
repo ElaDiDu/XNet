@@ -40,7 +40,7 @@ public class RFToolsSupport {
             case STACK:
                 cnt = 64;
                 break;
-            case COUNT:
+            case COUNTM:
                 cnt = settings.getExtractAmount();
                 break;
         }
