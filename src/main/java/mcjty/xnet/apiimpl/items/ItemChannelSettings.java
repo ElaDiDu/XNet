@@ -410,9 +410,12 @@ public class ItemChannelSettings extends DefaultChannelSettings implements IChan
             // We have leftover, keep going to next slots and try to insert it
             stackToInsert.setCount(remaining);
         }
-        // Yes there are repeats with prioritySlots, if you use limited item filter you forgo some optimization to not cost non-limited users
+        boolean hasPrioritySlots = prioritySlots.isEmpty();
         for (int slot = 0; slot < slots; slot++)
         {
+            // Small optimization for count filter, 1 boolean check first should mean no overhead for non count filter
+            if (hasPrioritySlots && prioritySlots.contains(slot))
+                continue;
             int remaining = insertToSlot(from, to, stackToInsert, extractSettings, total, toInsert, extractIdx, slot, count);
             // We inserted as much as we wanted/could, finish
             if (remaining == 0 || (count != null && count == total - remaining))
