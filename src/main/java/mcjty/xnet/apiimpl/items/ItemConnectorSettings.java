@@ -39,6 +39,7 @@ public class ItemConnectorSettings extends AbstractConnectorSettings {
     public static final String TAG_FILTER = "flt";
     public static final String TAG_BLACKLIST = "blacklist";
     public static final String TAG_COUNTMODE = "countmode";
+    public static final String TAG_SLOT = "slot";
 
     public static final int FILTER_SIZE = 18;
 
@@ -58,7 +59,8 @@ public class ItemConnectorSettings extends AbstractConnectorSettings {
     public enum ExtractMode {
         FIRST,
         RND,
-        ORDER
+        ORDER,
+        SLOT
     }
 
     private ItemMode itemMode = ItemMode.INS;
@@ -73,6 +75,7 @@ public class ItemConnectorSettings extends AbstractConnectorSettings {
     @Nullable private Integer priority = 0;
     @Nullable private Integer count = null;
     @Nullable private Integer extractAmount = null;
+    @Nullable private Integer slot = null;
     private ItemStackList filters = ItemStackList.create(FILTER_SIZE);
 
     // Cached matcher for items
@@ -121,7 +124,7 @@ public class ItemConnectorSettings extends AbstractConnectorSettings {
         gui.nl()
                 .choices(TAG_MODE, "Insert or extract mode", itemMode, ItemMode.values())
                 .shift(5)
-                .choices(TAG_STACK, "Single item, stack, count max, highest, count exact (up to target's empty space)", stackMode, StackMode.values());
+                .choices(TAG_STACK, "Single item, stack, count max, highest, count exact (up to destination's space)", stackMode, StackMode.values());
 
         if ((stackMode == StackMode.COUNTM || stackMode == StackMode.COUNTE) && itemMode == ItemMode.EXT) {
             gui
@@ -134,14 +137,21 @@ public class ItemConnectorSettings extends AbstractConnectorSettings {
                 .nl();
 
         gui
-                .label("Pri").integer(TAG_PRIORITY, "Insertion priority", priority, 36).shift(5)
+                .label("Pri").integer(TAG_PRIORITY, "Insertion priority", priority, 24)
+                //.shift(5)
                 .label("#")
                 .integer(TAG_COUNT, itemMode == ItemMode.EXT ? "Amount in destination inventory|to keep" : "Max amount in destination|inventory", count, 30);
 
         if (itemMode == ItemMode.EXT) {
             gui
-                    .shift(5)
-                    .choices(TAG_EXTRACT, "Extract mode (first available,|random slot or round robin)", extractMode, ExtractMode.values());
+                    //.shift(5)
+                    .choices(TAG_EXTRACT, "Extract mode (first available, random slot, round robin or slot)", extractMode, ExtractMode.values());
+        }
+        if (itemMode == ItemMode.INS || (itemMode == ItemMode.EXT && extractMode == ExtractMode.SLOT)) {
+            if (itemMode == ItemMode.INS) {
+                gui.label("Slot");
+            }
+            gui.integer(TAG_SLOT, "Slot to extract from|insert to", slot, 30);
         }
 
         gui
@@ -220,6 +230,12 @@ public class ItemConnectorSettings extends AbstractConnectorSettings {
         return count;
     }
 
+    @Nullable
+    public Integer getSlot()
+    {
+        return slot;
+    }
+
     public int getExtractAmount() {
         return extractAmount == null ? 1 : extractAmount;
     }
@@ -238,8 +254,8 @@ public class ItemConnectorSettings extends AbstractConnectorSettings {
         return countMode;
     }
 
-    private static final Set<String> INSERT_TAGS = ImmutableSet.of(TAG_MODE, TAG_RS, TAG_COLOR+"0", TAG_COLOR+"1", TAG_COLOR+"2", TAG_COLOR+"3", TAG_COUNT, TAG_PRIORITY, TAG_OREDICT, TAG_META, TAG_NBT, TAG_BLACKLIST, TAG_COUNTMODE);
-    private static final Set<String> EXTRACT_TAGS = ImmutableSet.of(TAG_MODE, TAG_RS, TAG_COLOR+"0", TAG_COLOR+"1", TAG_COLOR+"2", TAG_COLOR+"3", TAG_COUNT, TAG_OREDICT, TAG_META, TAG_NBT, TAG_BLACKLIST, TAG_STACK, TAG_SPEED, TAG_EXTRACT, TAG_EXTRACT_AMOUNT);
+    private static final Set<String> INSERT_TAGS = ImmutableSet.of(TAG_MODE, TAG_RS, TAG_COLOR+"0", TAG_COLOR+"1", TAG_COLOR+"2", TAG_COLOR+"3", TAG_COUNT, TAG_PRIORITY, TAG_OREDICT, TAG_META, TAG_NBT, TAG_BLACKLIST, TAG_COUNTMODE, TAG_SLOT);
+    private static final Set<String> EXTRACT_TAGS = ImmutableSet.of(TAG_MODE, TAG_RS, TAG_COLOR+"0", TAG_COLOR+"1", TAG_COLOR+"2", TAG_COLOR+"3", TAG_COUNT, TAG_OREDICT, TAG_META, TAG_NBT, TAG_BLACKLIST, TAG_STACK, TAG_SPEED, TAG_EXTRACT, TAG_EXTRACT_AMOUNT, TAG_SLOT);
 
     @Override
     public boolean isEnabled(String tag) {
@@ -280,6 +296,7 @@ public class ItemConnectorSettings extends AbstractConnectorSettings {
         priority = (Integer) data.get(TAG_PRIORITY);
         count = (Integer) data.get(TAG_COUNT);
         extractAmount = (Integer) data.get(TAG_EXTRACT_AMOUNT);
+        slot = (Integer) data.get(TAG_SLOT);
         for (int i = 0 ; i < FILTER_SIZE ; i++) {
             filters.set(i, (ItemStack) data.get(TAG_FILTER+i));
         }
@@ -302,6 +319,7 @@ public class ItemConnectorSettings extends AbstractConnectorSettings {
         setIntegerSafe(object, "extractamount", extractAmount);
         setIntegerSafe(object, "count", count);
         setIntegerSafe(object, "speed", speed);
+        setIntegerSafe(object, "slot", slot);
         for (int i = 0 ; i < FILTER_SIZE ; i++) {
             if (!filters.get(i).isEmpty()) {
                 object.add("filter" + i, ItemStackTools.itemStackToJson(filters.get(i)));
@@ -329,6 +347,7 @@ public class ItemConnectorSettings extends AbstractConnectorSettings {
         extractAmount = getIntegerSafe(object, "extractamount");
         count = getIntegerSafe(object, "count");
         speed = getIntegerNotNull(object, "speed");
+        slot = getIntegerSafe(object, "slot");
         for (int i = 0 ; i < FILTER_SIZE ; i++) {
             if (object.has("filter" + i)) {
                 filters.set(i, ItemStackTools.jsonToItemStack(object.get("filter" + i).getAsJsonObject()));
@@ -375,6 +394,12 @@ public class ItemConnectorSettings extends AbstractConnectorSettings {
         } else {
             count = null;
         }
+        if (tag.hasKey("slot")) {
+            slot = tag.getInteger("slot");
+        }
+        else {
+            slot = null;
+        }
         for (int i = 0 ; i < FILTER_SIZE ; i++) {
             if (tag.hasKey("filter" + i)) {
                 NBTTagCompound itemTag = tag.getCompoundTag("filter" + i);
@@ -412,6 +437,9 @@ public class ItemConnectorSettings extends AbstractConnectorSettings {
         }
         if (count != null) {
             tag.setInteger("count", count);
+        }
+        if (slot != null) {
+            tag.setInteger("slot", slot);
         }
         for (int i = 0 ; i < FILTER_SIZE ; i++) {
             if (!filters.get(i).isEmpty()) {

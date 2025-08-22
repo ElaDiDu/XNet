@@ -200,6 +200,8 @@ public class ItemChannelSettings extends DefaultChannelSettings implements IChan
             }
             case ORDER:
                 return getExtractIndex(consumerId);
+            case SLOT:
+                return settings.getSlot() == null ? -1 : settings.getSlot();
         }
         return 0;
     }
@@ -222,39 +224,26 @@ public class ItemChannelSettings extends DefaultChannelSettings implements IChan
 
         if (context.checkAndConsumeRF(ConfigSetup.controllerOperationRFT.get()))
         {
+
             int slots = handler.getSlots();
+            // Exact slot
+            if (settings.getExtractMode() == ItemConnectorSettings.ExtractMode.SLOT && startIdx >= 0)
+            {
+                if (slots <= startIdx)
+                    return 0;
+                ItemStack stack = getSimulateExtractStack(settings, handler, startIdx, extractMatcher, amount);
+                boolean transferred = transferStack(handler, stack, settings, startIdx, context);
+                return startIdx;
+            }
+            // If negative exact slot, do regular all slot extract
+            else if (startIdx < 0)
+                startIdx = 0;
             for (int i = startIdx; i < startIdx + slots; i++)
             {
                 int idx = i % slots;
-                ItemStack stack = fetchItem(handler, true,
-                        extractMatcher,
-                        settings.getStackMode(),
-                        settings.getExtractAmount(),
-                        Integer.MAX_VALUE,
-                        idx);
+                ItemStack stack = getSimulateExtractStack(settings, handler, idx, extractMatcher, amount);
                 if (stack.isEmpty())
                     continue;
-                // Exact mode doesn't allow stacks smaller than count
-                if (settings.getStackMode() == ItemConnectorSettings.StackMode.COUNTE && stack.getCount() < settings.getExtractAmount())
-                    continue;
-
-                // Now that we have a stack we first reduce the amount of the stack if we want to keep a certain
-                // number of items
-                int toextract = stack.getCount();
-                if (count != null)
-                {
-                    int canextract = amount - count;
-                    if (canextract <= 0)
-                    {
-                        continue;
-                    }
-                    if (canextract < toextract)
-                    {
-                        toextract = canextract;
-                        stack = stack.copy();
-                        stack.setCount(toextract);
-                    }
-                }
 
                 boolean transferred = transferStack(handler, stack, settings, idx, context);
                 if (transferred)
@@ -264,6 +253,41 @@ public class ItemChannelSettings extends DefaultChannelSettings implements IChan
         }
 
         return startIdx;
+    }
+
+    private ItemStack getSimulateExtractStack(ItemConnectorSettings settings, IItemHandler handler, int idx, Predicate<ItemStack> extractMatcher, int amount)
+    {
+        ItemStack stack = fetchItem(handler, true,
+                extractMatcher,
+                settings.getStackMode(),
+                settings.getExtractAmount(),
+                Integer.MAX_VALUE,
+                idx);
+        if (stack.isEmpty())
+            return ItemStack.EMPTY;
+        // Exact mode doesn't allow stacks smaller than count
+        if (settings.getStackMode() == ItemConnectorSettings.StackMode.COUNTE && stack.getCount() < settings.getExtractAmount())
+            return ItemStack.EMPTY;
+
+        // Now that we have a stack we first reduce the amount of the stack if we want to keep a certain
+        // number of items
+        int toextract = stack.getCount();
+        Integer count = settings.getCount();
+        if (count != null)
+        {
+            int canextract = amount - count;
+            if (canextract <= 0)
+            {
+                return ItemStack.EMPTY;
+            }
+            if (canextract < toextract)
+            {
+                toextract = canextract;
+                stack = stack.copy();
+                stack.setCount(toextract);
+            }
+        }
+        return stack;
     }
 
     /**
@@ -356,6 +380,42 @@ public class ItemChannelSettings extends DefaultChannelSettings implements IChan
             return total;
         ItemStack stackToInsert = stack.copy();
         stackToInsert.setCount(toInsert);
+
+        // @todo collapse these copy paste to a function
+        int slotExact = insertSettings.getSlot() == null ? -1 : insertSettings.getSlot();
+        // Has exact slot
+        if (slotExact >= 0)
+        {
+            if (slots <= slotExact)
+                return total;
+
+            ItemStack remaining = to.insertItem(slotExact, stackToInsert, true);
+
+            // Stack inserted successfully
+            // Quick identity check for handlers that return the same item, equal function can be expensive.
+            if (remaining != stackToInsert && !ItemStack.areItemStacksEqual(remaining, stackToInsert))
+            {
+                // Assume the result of both the extract and insert simulate is the same, otherwise... that mod's problem
+
+                // Extract the exact amount for real
+                int itemsInserted = toInsert - remaining.getCount();
+                ItemStack realInsert = fetchItem(from, false,
+                        extractSettings.getMatcher(),
+                        extractSettings.getStackMode(),
+                        extractSettings.getExtractAmount(),
+                        itemsInserted,
+                        extractIdx);
+                // Insert for real
+                to.insertItem(slotExact, realInsert, false);
+
+                // We inserted as much as we wanted/could, finish
+                if (remaining.isEmpty() || (count != null && count == itemsInserted))
+                    return total - itemsInserted;
+
+            }
+            return stackToInsert.getCount();
+        }
+        
         for (int slot = 0; slot < slots; slot++)
         {
             ItemStack remaining = to.insertItem(slot, stackToInsert, true);
