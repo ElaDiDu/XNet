@@ -8,6 +8,8 @@ import net.minecraft.item.ItemStack;
 import net.minecraft.nbt.NBTTagCompound;
 import net.minecraftforge.fml.common.Loader;
 
+import javax.annotation.Nullable;
+
 public final class ForestrySupport {
     public enum Tag {
     	GENOME("Genome", 1),	// Bees, Trees, Butterflies
@@ -49,8 +51,12 @@ public final class ForestrySupport {
     private static final String[] FORESTRY_NAMES = { QUEEN_BEE, PRINCESS_BEE, DRONE_BEE, LARVAE_BEE, SAPLING, POLLEN,
 	    BUTTERFLY, SERUM, CATERPILLAR, COCOON };
 
+    private static @Nullable Boolean LOADED = null;
+
     public static boolean isLoaded() {
-	    return Loader.isModLoaded(ID);
+        if (LOADED == null)
+            LOADED = Loader.isModLoaded(ID);
+	    return LOADED;
     }
 
     /**
