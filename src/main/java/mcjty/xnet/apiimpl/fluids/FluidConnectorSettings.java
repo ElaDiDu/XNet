@@ -78,9 +78,9 @@ public class FluidConnectorSettings extends AbstractConnectorSettings {
         return priority == null ? 0 : priority;
     }
 
-    @Nonnull
+    @Nullable
     public Integer getRate() {
-        return rate == null ? ConfigSetup.maxFluidRateNormal.get() : rate;
+        return rate;
     }
 
     @Nullable
