@@ -1,5 +1,6 @@
 package mcjty.xnet.apiimpl.items;
 
+import com.google.common.collect.ImmutableList;
 import com.google.gson.JsonObject;
 import com.google.gson.JsonPrimitive;
 import mcjty.lib.varia.WorldTools;
@@ -371,9 +372,17 @@ public class ItemChannelSettings extends DefaultChannelSettings implements IChan
 
             toInsert = Math.min(toInsert, canInsert);
         }
+        List<Integer> prioritySlots = ImmutableList.of();
         if (!insertSettings.isBlacklist() && insertSettings.isCountMode())
         {
-            toInsert = Math.min(toInsert, insertSettings.itemsNeededToSatisfyFilter(to, stack));
+            ItemFilterCache.ItemsNeededLocations neededAndLocations = insertSettings.itemsNeededToSatisfyFilter(to, stack);
+            if (neededAndLocations != null)
+            {
+                prioritySlots = neededAndLocations.existingStackLocations;
+                toInsert = Math.min(toInsert, neededAndLocations.needed);
+                if (count != null)
+                    count = Math.min(count, neededAndLocations.needed);
+            }
         }
 
         if (toInsert <= 0)
@@ -381,71 +390,71 @@ public class ItemChannelSettings extends DefaultChannelSettings implements IChan
         ItemStack stackToInsert = stack.copy();
         stackToInsert.setCount(toInsert);
 
-        // @todo collapse these copy paste to a function
         int slotExact = insertSettings.getSlot() == null ? -1 : insertSettings.getSlot();
-        // Has exact slot
+        // Has exact slot chosen
         if (slotExact >= 0)
         {
             if (slots <= slotExact)
                 return total;
 
-            ItemStack remaining = to.insertItem(slotExact, stackToInsert, true);
-
-            // Stack inserted successfully
-            // Quick identity check for handlers that return the same item, equal function can be expensive.
-            if (remaining != stackToInsert && !ItemStack.areItemStacksEqual(remaining, stackToInsert))
-            {
-                // Assume the result of both the extract and insert simulate is the same, otherwise... that mod's problem
-
-                // Extract the exact amount for real
-                int itemsInserted = toInsert - remaining.getCount();
-                ItemStack realInsert = fetchItem(from, false,
-                        extractSettings.getMatcher(),
-                        extractSettings.getStackMode(),
-                        extractSettings.getExtractAmount(),
-                        itemsInserted,
-                        extractIdx);
-                // Insert for real
-                to.insertItem(slotExact, realInsert, false);
-
-                // We inserted as much as we wanted/could, finish
-                if (remaining.isEmpty() || (count != null && count == itemsInserted))
-                    return total - itemsInserted;
-
-            }
-            return stackToInsert.getCount();
+            return total - toInsert + insertToSlot(from, to, stackToInsert, extractSettings, total, toInsert, extractIdx, slotExact, count);
         }
-        
+
+        // Priority slots to stack already existing items with the limited item filter, as opposed to fragmenting them in multiple slots.
+        for (int slot : prioritySlots)
+        {
+            int remaining = insertToSlot(from, to, stackToInsert, extractSettings, total, toInsert, extractIdx, slot, count);
+            // We inserted as much as we wanted/could, finish
+            if (remaining == 0 || (count != null && count == total - remaining))
+                return total - toInsert + remaining;
+            // We have leftover, keep going to next slots and try to insert it
+            stackToInsert.setCount(remaining);
+        }
+        // Yes there are repeats with prioritySlots, if you use limited item filter you forgo some optimization to not cost non-limited users
         for (int slot = 0; slot < slots; slot++)
         {
-            ItemStack remaining = to.insertItem(slot, stackToInsert, true);
-            // Stack inserted successfully
-            // Quick identity check for handlers that return the same item, equal function can be expensive.
-            if (remaining != stackToInsert && !ItemStack.areItemStacksEqual(remaining, stackToInsert))
-            {
-                // Assume the result of both the extract and insert simulate is the same, otherwise... that mod's problem
-
-                // Extract the exact amount for real
-                int itemsInserted = toInsert - remaining.getCount();
-                ItemStack realInsert = fetchItem(from, false,
-                        extractSettings.getMatcher(),
-                        extractSettings.getStackMode(),
-                        extractSettings.getExtractAmount(),
-                        itemsInserted,
-                        extractIdx);
-                // Insert for real
-                to.insertItem(slot, realInsert, false);
-
-                // We inserted as much as we wanted/could, finish
-                if (remaining.isEmpty() || (count != null && count == itemsInserted))
-                    return total - itemsInserted;
-
-            }
+            int remaining = insertToSlot(from, to, stackToInsert, extractSettings, total, toInsert, extractIdx, slot, count);
+            // We inserted as much as we wanted/could, finish
+            if (remaining == 0 || (count != null && count == total - remaining))
+                return total - toInsert + remaining;
             // We have leftover, keep going to next slots and try to insert it
-            stackToInsert = remaining;
+            stackToInsert.setCount(remaining);
         }
 
-        return stackToInsert.getCount();
+        return total - toInsert + stackToInsert.getCount();
+    }
+
+    /**
+     * Returns remaining item count that wasn't inserted, if the count is the same as stackToInsert, no insertion happened.
+     * @return remaining item count that wasn't inserted
+     */
+    private int insertToSlot(@Nonnull IItemHandler from, @Nonnull IItemHandler to, @Nonnull ItemStack stackToInsert,
+                             ItemConnectorSettings extractSettings, int total, int toInsert,
+                             int extractIdx, int slot, Integer neededToInsert)
+    {
+        ItemStack remaining = to.insertItem(slot, stackToInsert, true);
+
+        // Stack inserted successfully
+        if (remaining.getCount() < stackToInsert.getCount())
+        {
+            // Assume the result of both the extract and insert simulate is the same, otherwise... that mod's problem
+
+            // Extract the exact amount for real
+            int itemsInserted = toInsert - remaining.getCount();
+            ItemStack realInsert = fetchItem(from, false,
+                    extractSettings.getMatcher(),
+                    extractSettings.getStackMode(),
+                    extractSettings.getExtractAmount(),
+                    itemsInserted,
+                    extractIdx);
+            // Insert for real
+            to.insertItem(slot, realInsert, false);
+
+            // We inserted as much as we wanted/could, finish
+            if (remaining.isEmpty())
+                return 0;
+        }
+        return remaining.getCount();
     }
 
     /**

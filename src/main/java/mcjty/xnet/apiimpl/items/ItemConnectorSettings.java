@@ -188,7 +188,11 @@ public class ItemConnectorSettings extends AbstractConnectorSettings {
         return matcher;
     }
 
-    public int itemsNeededToSatisfyFilter(IItemHandler handler, ItemStack stack)
+    /**
+     * @return the amount of items needed from stack to satisfy the filter, and the slots where an incomplete stack of that type already exists
+     */
+    @Nullable
+    public ItemFilterCache.ItemsNeededLocations itemsNeededToSatisfyFilter(IItemHandler handler, ItemStack stack)
     {
         if (matcher == null) {
             ItemStackList filterList = ItemStackList.create();
@@ -207,7 +211,7 @@ public class ItemConnectorSettings extends AbstractConnectorSettings {
             }
         }
         if (itemFilterCache == null)
-            return Integer.MAX_VALUE;
+            return null;
 
         return itemFilterCache.itemsNeededToSatisfyFilter(handler, stack);
     }

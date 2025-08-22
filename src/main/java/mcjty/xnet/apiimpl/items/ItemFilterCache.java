@@ -7,12 +7,11 @@ import mcjty.xnet.compat.ForestrySupport;
 import net.minecraft.item.ItemStack;
 import net.minecraftforge.items.IItemHandler;
 import net.minecraftforge.oredict.OreDictionary;
+import org.apache.commons.lang3.tuple.Pair;
 
 import javax.annotation.Nonnull;
-import java.util.Arrays;
-import java.util.HashMap;
-import java.util.HashSet;
-import java.util.Set;
+import javax.annotation.Nullable;
+import java.util.*;
 
 public class ItemFilterCache {
     private boolean matchDamage = true;
@@ -148,10 +147,14 @@ public class ItemFilterCache {
         return true;
     }
 
-    public int itemsNeededToSatisfyFilter(IItemHandler handler, ItemStack stack)
+    /**
+     * @return the amount of items needed from stack to satisfy the filter, and the slots where an incomplete stack of that type already exists
+     */
+    @Nullable
+    public ItemsNeededLocations itemsNeededToSatisfyFilter(IItemHandler handler, ItemStack stack)
     {
         if (stacks == null)
-            return Integer.MAX_VALUE;
+            return null;
 
         int needed = Integer.MAX_VALUE;
         int cnt = 0;
@@ -168,8 +171,9 @@ public class ItemFilterCache {
             }
         }
         if (!found)
-            return Integer.MAX_VALUE;
+            return null;
 
+        List<Integer> locations = new ArrayList<>();
         for (int i = 0 ; i < handler.getSlots() ; i++)
         {
             ItemStack s = handler.getStackInSlot(i);
@@ -177,10 +181,28 @@ public class ItemFilterCache {
                 continue;
 
             if (itemMatchesFilterItem(stack, s))
-                cnt += s.getCount();
+            {
+                int stackCount = s.getCount();
+                cnt += stackCount;
+                // If can probably stack this item to this slot, add it
+                if (stackCount < handler.getSlotLimit(i))
+                    locations.add(i);
+            }
         }
 
-        return Math.max(needed - cnt, 0);
+        return new ItemsNeededLocations(Math.max(needed - cnt, 0), locations);
 
+    }
+
+    public static class ItemsNeededLocations
+    {
+        public final int needed;
+        public final List<Integer> existingStackLocations;
+
+        public ItemsNeededLocations(int needed, List<Integer> existingStackLocations)
+        {
+            this.needed = needed;
+            this.existingStackLocations = existingStackLocations;
+        }
     }
 }
