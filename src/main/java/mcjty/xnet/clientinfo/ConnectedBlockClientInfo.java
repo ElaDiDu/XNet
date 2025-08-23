@@ -95,7 +95,10 @@ public class ConnectedBlockClientInfo {
             }
         }
 
-        return stack.getItem().getUnlocalizedNameInefficiently(stack) + ".name";
+        String name = stack.getItem().getTranslationKey(stack);
+        if (!name.endsWith(".name"))
+            name = name + ".name";
+        return name;
     }
 
     private static NBTTagCompound getSubCompound(ItemStack stack, String key) {
