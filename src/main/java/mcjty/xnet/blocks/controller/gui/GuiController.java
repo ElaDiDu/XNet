@@ -38,6 +38,9 @@ import mcjty.xnet.setup.GuiProxy;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.Gui;
 import net.minecraft.client.resources.I18n;
+import net.minecraft.inventory.ClickType;
+import net.minecraft.inventory.Slot;
+import net.minecraft.item.ItemStack;
 import net.minecraft.util.EnumFacing;
 import net.minecraft.util.ResourceLocation;
 import net.minecraft.util.math.BlockPos;
@@ -727,5 +730,24 @@ public class GuiController extends GenericGuiContainer<TileEntityController> {
             }
         }
         super.drawStackTooltips(mouseX, mouseY);
+    }
+
+    @Override
+    protected void handleMouseClick(Slot slotIn, int slotId, int mouseButton, ClickType type)
+    {
+        if (slotIn != null && type == ClickType.QUICK_MOVE && editingConnector != null && slotIn.getHasStack())
+        {
+            ItemStack stack = slotIn.getStack();
+            sendServerCommand(XNetMessages.INSTANCE, TileEntityController.CMD_ADDTOFILTER,
+                    TypedMap.builder()
+                            .put(PARAM_CHANNEL, getSelectedChannel())
+                            .put(PARAM_POS, editingConnector.getPos())
+                            .put(PARAM_SIDE, editingConnector.getSide().ordinal())
+                            .put(PARAM_STACK, stack)
+                            .build());
+            refresh();
+        }
+        else
+            super.handleMouseClick(slotIn, slotId, mouseButton, type);
     }
 }

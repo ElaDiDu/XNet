@@ -93,6 +93,11 @@ public class FluidConnectorSettings extends AbstractConnectorSettings {
         return extractMode;
     }
 
+    public ItemStackList getFilters()
+    {
+        return filters;
+    }
+
     @Nullable
     @Override
     public IndicatorIcon getIndicatorIcon() {

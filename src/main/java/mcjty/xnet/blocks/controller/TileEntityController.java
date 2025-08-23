@@ -7,6 +7,7 @@ import mcjty.lib.typed.Key;
 import mcjty.lib.typed.Type;
 import mcjty.lib.typed.TypedMap;
 import mcjty.lib.varia.BlockPosTools;
+import mcjty.lib.varia.ItemStackList;
 import mcjty.theoneprobe.api.IProbeHitData;
 import mcjty.theoneprobe.api.IProbeInfo;
 import mcjty.theoneprobe.api.ProbeMode;
@@ -20,6 +21,8 @@ import mcjty.xnet.api.keys.ConsumerId;
 import mcjty.xnet.api.keys.NetworkId;
 import mcjty.xnet.api.keys.SidedConsumer;
 import mcjty.xnet.api.keys.SidedPos;
+import mcjty.xnet.apiimpl.fluids.FluidConnectorSettings;
+import mcjty.xnet.apiimpl.items.ItemConnectorSettings;
 import mcjty.xnet.blocks.cables.ConnectorBlock;
 import mcjty.xnet.blocks.cables.ConnectorTileEntity;
 import mcjty.xnet.blocks.cables.NetCableSetup;
@@ -78,6 +81,7 @@ public final class TileEntityController extends GenericEnergyReceiverTileEntity 
     public static final String CMD_COPYCONNECTOR = "controller.copyConnector";
     public static final String CMD_REMOVECHANNEL = "controller.removeChannel";
     public static final String CMD_UPDATECHANNEL = "controller.updateChannel";
+    public static final String CMD_ADDTOFILTER = "controller.addToFilter";
 
     public static final Key<Integer> PARAM_INDEX = new Key<>("index", Type.INTEGER);
     public static final Key<String> PARAM_TYPE = new Key<>("type", Type.STRING);
@@ -85,6 +89,7 @@ public final class TileEntityController extends GenericEnergyReceiverTileEntity 
     public static final Key<Integer> PARAM_CHANNEL = new Key<>("channel", Type.INTEGER);
     public static final Key<Integer> PARAM_SIDE = new Key<>("side", Type.INTEGER);
     public static final Key<BlockPos> PARAM_POS = new Key<>("pos", Type.BLOCKPOS);
+    public static final Key<ItemStack> PARAM_STACK = new Key<>("stack", Type.ITEMSTACK);
 
     public static final PropertyBool ERROR = PropertyBool.create("error");
 
@@ -943,6 +948,44 @@ public final class TileEntityController extends GenericEnergyReceiverTileEntity 
         markAsDirty();
     }
 
+    private void addFilter(int channel, SidedPos pos, ItemStack stack) {
+        if (stack.isEmpty())
+            return;
+        WorldBlob worldBlob = XNetBlobData.getBlobData(getWorld()).getWorldBlob(getWorld());
+        ConsumerId consumerId = worldBlob.getConsumerAt(pos.getPos().offset(pos.getSide()));
+        ConnectorInfo connector = null;
+        for (Map.Entry<SidedConsumer, ConnectorInfo> entry : channels[channel].getConnectors().entrySet()) {
+            SidedConsumer key = entry.getKey();
+            if (key.getSide().getOpposite().equals(pos.getSide())) {
+                if (key.getConsumerId().equals(consumerId)) {
+                    connector = entry.getValue();
+                    break;
+                }
+            }
+        }
+        if (connector == null)
+            return;
+
+        ItemStackList filters = null;
+        if (connector.getConnectorSettings() instanceof ItemConnectorSettings itemSettings)
+            filters = itemSettings.getFilters();
+        else if (connector.getConnectorSettings() instanceof FluidConnectorSettings fluidSettings)
+            filters = fluidSettings.getFilters();
+
+        if (filters != null)
+        {
+            for (int i = 0; i < filters.size(); i++)
+            {
+                if (filters.get(i).isEmpty())
+                {
+                    filters.set(i, stack);
+                    markAsDirty();
+                    break;
+                }
+            }
+        }
+    }
+
 
     @Override
     public boolean execute(EntityPlayerMP playerMP, String command, TypedMap params) {
@@ -997,6 +1040,13 @@ public final class TileEntityController extends GenericEnergyReceiverTileEntity 
         } else if (CMD_UPDATECHANNEL.equals(command)) {
             int channel = params.get(PARAM_CHANNEL);
             updateChannel(channel, params);
+            return true;
+        }
+        else if (CMD_ADDTOFILTER.equals(command)) {
+            int channel = params.get(PARAM_CHANNEL);
+            SidedPos pos = new SidedPos(params.get(PARAM_POS), EnumFacing.VALUES[params.get(PARAM_SIDE)]);
+            ItemStack stack = params.get(PARAM_STACK);
+            addFilter(channel, pos, stack);
             return true;
         }
         return false;
