@@ -1,5 +1,6 @@
 package mcjty.xnet.apiimpl.energy;
 
+import cofh.core.util.helpers.EnergyHelper;
 import cofh.redstoneflux.api.IEnergyHandler;
 import com.google.gson.JsonObject;
 import it.unimi.dsi.fastutil.objects.Object2IntOpenHashMap;
@@ -76,13 +77,6 @@ public class EnergyChannelSettings extends DefaultChannelSettings implements ICh
 
         World world = context.getControllerWorld();
 
-        // First find out how much energy we have to distribute in total
-        int totalToDistribute = 0;
-        // Keep track of the connectors we already got energy from and how much energy we
-        // got from it
-        Map<BlockPos, Integer> alreadyHandled = new HashMap<>();
-
-        List<Pair<ConnectorTileEntity, Integer>> energyProducers = new ArrayList<>();
         for (Pair<SidedConsumer, EnergyConnectorSettings> entry : energyExtractors)
         {
             EnergyConnectorSettings settings = entry.getValue();
@@ -104,11 +98,15 @@ public class EnergyChannelSettings extends DefaultChannelSettings implements ICh
             if (handler == null)
                 continue;
 
-            tickEnergyHandler(context, settings, connectorPos, handler);
+            ConnectorTileEntity connectorTile = null;
+            if (world.getTileEntity(connectorPos) instanceof ConnectorTileEntity connectorTE)
+                connectorTile = connectorTE;
+            tickEnergyHandler(context, settings, connectorPos, handler, connectorTile, entry.getKey().getSide());
         }
     }
 
-    private void tickEnergyHandler(IControllerContext context, EnergyConnectorSettings settings, BlockPos extractorPos , IEnergyStorage handler)
+    public void tickEnergyHandler(IControllerContext context, EnergyConnectorSettings settings, BlockPos extractorPos,
+                                  @Nonnull IEnergyStorage handler, @Nullable ConnectorTileEntity connectorTile, EnumFacing connectorSide)
     {
         World world = context.getControllerWorld();
         Integer count = settings.getMinmax();
@@ -120,7 +118,7 @@ public class EnergyChannelSettings extends DefaultChannelSettings implements ICh
         if (context.checkAndConsumeRF(ConfigSetup.controllerOperationRFT.get()))
         {
             int rate = getRate(settings, world, extractorPos);
-            int extractedEnergy = handler.extractEnergy(rate, true);
+            int extractedEnergy = fetchEnergy(handler, connectorTile, connectorSide, true, rate);
             if (extractedEnergy == 0)
                 return;
 
@@ -134,11 +132,12 @@ public class EnergyChannelSettings extends DefaultChannelSettings implements ICh
                     toExtract = canExtract;
             }
 
-            transferEnergy(handler, toExtract, context);
+            transferEnergy(handler, toExtract, context, connectorTile, connectorSide);
         }
     }
 
-    public void transferEnergy(@Nonnull IEnergyStorage from, int energyExtracted, @Nonnull IControllerContext context)
+    public void transferEnergy(@Nonnull IEnergyStorage from, int energyExtracted, @Nonnull IControllerContext context,
+                               @Nullable ConnectorTileEntity connectorTile, EnumFacing connectorSide)
     {
         if (energyConsumers.isEmpty() || energyExtracted <= 0)
             return;
@@ -163,7 +162,7 @@ public class EnergyChannelSettings extends DefaultChannelSettings implements ICh
 
             IEnergyStorage handler = getEnergyHandlerAt(te, insertSettings.getFacing());
             if (handler == null)
-                return;
+                continue;
 
             Integer count = insertSettings.getMinmax();
             int rate = getRate(insertSettings, world, consumerPos);
@@ -183,7 +182,7 @@ public class EnergyChannelSettings extends DefaultChannelSettings implements ICh
             if (received <= 0)
                 continue;
             // After simulating receive, extract and receive for real
-            from.extractEnergy(received, false);
+            fetchEnergy(from, connectorTile, connectorSide, false, received);
             handler.receiveEnergy(received, false);
             energyExtracted -= received;
             canAcceptEnergy.add(Triple.of(handler, consumerPos, insertSettings));
@@ -215,12 +214,24 @@ public class EnergyChannelSettings extends DefaultChannelSettings implements ICh
             if (received <= 0)
                 continue;
             // After simulating receive, extract and receive for real
-            from.extractEnergy(received, false);
+            fetchEnergy(from, connectorTile, connectorSide, false, received);
             handler.receiveEnergy(received, false);
             energyExtracted -= received;
             if (energyExtracted <= 0)
                 return;
         }
+    }
+
+    private static int fetchEnergy(IEnergyStorage handler, @Nullable ConnectorTileEntity connectorTile,
+                                   EnumFacing connectorSide, boolean simulate, int max)
+    {
+        int energy = 0;
+        if (connectorTile != null)
+            energy = connectorTile.extractEnergyFrom(connectorSide, max, simulate);
+        if (energy == max)
+            return energy;
+        energy += handler.extractEnergy(max - energy, simulate);
+        return energy;
     }
 
     private static int getRate(EnergyConnectorSettings connector, World world, BlockPos pos)
@@ -230,55 +241,6 @@ public class EnergyChannelSettings extends DefaultChannelSettings implements ICh
             return Math.max(0, rate);
 
         return ConnectorBlock.isAdvancedConnector(world, pos) ? ConfigSetup.maxRfRateAdvanced.get() : ConfigSetup.maxRfRateNormal.get();
-    }
-
-    private int insertEnergy(@Nonnull IControllerContext context, int energy) {
-        int total = 0;
-        World world = context.getControllerWorld();
-        for (Pair<SidedConsumer, EnergyConnectorSettings> entry : energyConsumers) {
-            EnergyConnectorSettings settings = entry.getValue();
-            BlockPos extractorPos = context.findConsumerPosition(entry.getKey().getConsumerId());
-            if (extractorPos != null) {
-                EnumFacing side = entry.getKey().getSide();
-                BlockPos pos = extractorPos.offset(side);
-                if (!WorldTools.chunkLoaded(world, pos)) {
-                    continue;
-                }
-                TileEntity te = world.getTileEntity(pos);
-                // @todo report error somewhere?
-                if (isEnergyTE(te, settings.getFacing())) {
-
-                    if (checkRedstone(world, settings, extractorPos)) {
-                        continue;
-                    }
-                    if (!context.matchColor(settings.getColorsMask())) {
-                        continue;
-                    }
-
-                    Integer count = settings.getMinmax();
-                    if (count != null) {
-                        int level = getEnergyLevel(te, settings.getFacing());
-                        if (level >= count) {
-                            continue;
-                        }
-                    }
-
-                    Integer rate = settings.getRate();
-                    if (rate == null) {
-                        boolean advanced = ConnectorBlock.isAdvancedConnector(world, extractorPos);
-                        rate = advanced ? ConfigSetup.maxRfRateAdvanced.get() : ConfigSetup.maxRfRateNormal.get();
-                    }
-                    int totransfer = Math.min(rate, energy);
-                    long e = EnergyTools.receiveEnergy(te, settings.getFacing(), totransfer);
-                    energy -= e;
-                    total += e;
-                    if (energy <= 0) {
-                        return total;
-                    }
-                }
-            }
-        }
-        return total;
     }
 
     public static int getEnergyLevel(TileEntity tileEntity, @Nonnull EnumFacing side) {

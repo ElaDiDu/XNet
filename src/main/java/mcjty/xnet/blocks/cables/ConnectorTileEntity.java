@@ -34,7 +34,6 @@ public class ConnectorTileEntity extends GenericTileEntity implements IFacadeSup
 
     private MimicBlockSupport mimicBlockSupport = new MimicBlockSupport();
 
-    private int energy = 0;
     private int inputFromSide[] = new int[] { 0, 0, 0, 0, 0, 0 };
     private String name = "";
 
@@ -140,7 +139,6 @@ public class ConnectorTileEntity extends GenericTileEntity implements IFacadeSup
     @Override
     public void readFromNBT(NBTTagCompound tagCompound) {
         super.readFromNBT(tagCompound);
-        energy = tagCompound.getInteger("energy");
         inputFromSide = tagCompound.getIntArray("inputs");
         if (inputFromSide.length != 6) {
             inputFromSide = new int[] { 0, 0, 0, 0, 0, 0 };
@@ -166,7 +164,6 @@ public class ConnectorTileEntity extends GenericTileEntity implements IFacadeSup
     @Override
     public NBTTagCompound writeToNBT(NBTTagCompound tagCompound) {
         super.writeToNBT(tagCompound);
-        tagCompound.setInteger("energy", energy);
         tagCompound.setIntArray("inputs", inputFromSide);
         mimicBlockSupport.writeToNBT(tagCompound);
         tagCompound.setInteger("pulse", pulseCounter);
@@ -193,60 +190,49 @@ public class ConnectorTileEntity extends GenericTileEntity implements IFacadeSup
         markDirtyClient();
     }
 
-
     public String getConnectorName() {
         return name;
-    }
-
-    public int getEnergy() {
-        return energy;
-    }
-
-    public void setEnergy(int energy) {
-        if (this.energy != energy) {
-            if (energy < 0) {
-                energy = 0;
-            }
-            this.energy = energy;
-            markDirtyQuick();
-        }
-    }
-
-    public void setEnergyInputFrom(EnumFacing from, int rate) {
-        if (inputFromSide[from.ordinal()] != rate) {
-            inputFromSide[from.ordinal()] = rate;
-            markDirtyQuick();
-        }
     }
 
     public int getMaxEnergy() {
         return ConfigSetup.maxRfConnector.get();
     }
 
+    public void setEnergyFrom(EnumFacing facing, int energy) {
+        inputFromSide[facing.ordinal()] = energy;
+    }
+
+    public int getEnergyFrom(EnumFacing facing)
+    {
+        return inputFromSide[facing.ordinal()];
+    }
+
+    public int extractEnergyFrom(EnumFacing facing, int max, boolean simulate)
+    {
+        int facingOrdinal = facing.ordinal();
+        int extracted = Math.min(max, inputFromSide[facingOrdinal]);
+        if (simulate)
+            return extracted;
+        inputFromSide[facingOrdinal] -= extracted;
+        markDirtyQuick();
+        return extracted;
+    }
+
     private int receiveEnergyInternal(EnumFacing from, int maxReceive, boolean simulate) {
+
         if (from == null) {
             return 0;
         }
-        int m = inputFromSide[from.ordinal()];
-        if (m > 0) {
-            int toreceive = Math.min(maxReceive, m);
-            int newenergy = energy + toreceive;
-            if (newenergy > getMaxEnergy()) {
-                toreceive -= newenergy - getMaxEnergy();
-                newenergy = getMaxEnergy();
-            }
-            if (!simulate && energy != newenergy) {
-                energy = newenergy;
-                inputFromSide[from.ordinal()] = 0;
-                markDirtyQuick();
-            }
-            return toreceive;
+        int facingOrdinal = from.ordinal();
+        int old = inputFromSide[facingOrdinal];
+        int newEnergy = (int)Math.min(getMaxEnergy(), (long) maxReceive + (long) old);
+        if (!simulate)
+        {
+            inputFromSide[facingOrdinal] = newEnergy;
+            markDirtyQuick();
         }
-        return 0;
-    }
 
-    private int getEnergyStoredInternal() {
-        return energy;
+        return newEnergy - old;
     }
 
     private int getMaxEnergyStoredInternal() {
@@ -307,7 +293,7 @@ public class ConnectorTileEntity extends GenericTileEntity implements IFacadeSup
 
             @Override
             public int getEnergyStored() {
-                return ConnectorTileEntity.this.getEnergyStoredInternal();
+                return ConnectorTileEntity.this.getEnergyFrom(facing);
             }
 
             @Override

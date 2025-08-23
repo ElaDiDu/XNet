@@ -203,6 +203,8 @@ dependencies {
     implementation(rfg.deobf("curse.maven:cofhworld-271384:2920434"))
     implementation(rfg.deobf("curse.maven:thermal-69163:2926431"))
     implementation(rfg.deobf("curse.maven:thermalfoundation-222880:2926428"))
+    implementation(rfg.deobf("curse.maven:thermal-dynamics-227443:2920505"))
+    implementation(rfg.deobf("curse.maven:thermallogistics-313298:3379693"))
 }
 
 // Publishing to a Maven repository
