@@ -738,7 +738,7 @@ public class ItemChannelSettings extends DefaultChannelSettings implements IChan
 
     private void cleanTilesCache()
     {
-        tilesCache.entrySet().removeIf(entry -> entry.getValue().isInvalid());
+        tilesCache.clear();
     }
 
     private void updateCache(int channel, IControllerContext context) {

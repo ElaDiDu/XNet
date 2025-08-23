@@ -600,7 +600,7 @@ public class FluidChannelSettings extends DefaultChannelSettings implements ICha
 
     private void cleanTilesCache()
     {
-        tilesCache.entrySet().removeIf(entry -> entry.getValue().isInvalid());
+        tilesCache.clear();
     }
 
     @Override

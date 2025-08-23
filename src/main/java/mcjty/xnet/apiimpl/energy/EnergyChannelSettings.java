@@ -298,7 +298,7 @@ public class EnergyChannelSettings extends DefaultChannelSettings implements ICh
 
     private void cleanTilesCache()
     {
-        tilesCache.entrySet().removeIf(entry -> entry.getValue().isInvalid());
+        tilesCache.clear();
     }
 
     @Override
