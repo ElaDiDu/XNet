@@ -1,3 +1,47 @@
+1.8.13:
+- Internal energy transfer logic overhaul
+
+1.8.12:
+- Fixed items sometimes not inserting to count filter if the target inventory has an early filled slot
+
+1.8.11:
+- Fixed item voiding when inserting a large item that splits into multiple stacks
+
+1.8.10:
+- Added shift click support to filters
+
+1.8.9:
+- Potential early end to insert handlers scan when using counts filter fixed
+- Count filter now prioritizes slots where the stack already exists in the target container.
+- Advanced fluid connectors now correctly default to advanced's max rate
+
+1.8.8:
+- Extended fluid filter to 18 fluids
+- Added count exact (Counte) that only extracts that count if a stack is atleast that count in the inventory. Old count renamed to count max (Countm)
+- Added slot specific extract/insert
+- Fixed Count filter toggle being toggle able when mode is on extract
+
+1.8.7:
+- Added limited item count per filter item (much like EnderIO's "limited item filter")
+- No longer closes the screen when highlighting connected block
+
+1.8.6:
+- Fixed ordered fluid extract not working with distribute correctly
+
+1.8.5:
+- Round robin now only inserts to 1 inventory at a time, even if there is a some amount in the stack leftover
+- Added fluid extract types: First, Rnd, Roundrobin. Work like their item counterparts
+
+1.8.4:
+- Fixed extract not iterating over multiple inserts correctly
+
+1.8.3:
+- Fixed item voiding on inventories who are not slot agnostic (such as drawers, where extracting from slot 0 affects slot 1)
+- Fixed item voiding/reference duplicating from insert limit
+- Allows count to extract more than stack size and added "Highest" extract count (max int).
+- Fixed fluid filter not working on extract
+- Added true fluid distribute, old one is renamed to Roundrobin
+
 1.8.2:
 - Joseph fixed a pathological case with fluid handling
 
