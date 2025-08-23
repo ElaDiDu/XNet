@@ -405,7 +405,7 @@ public class ItemChannelSettings extends DefaultChannelSettings implements IChan
         {
             int remaining = insertToSlot(from, to, stackToInsert, extractSettings, extractIdx, slot);
             // We inserted as much as we wanted/could, finish
-            if (remaining == 0 || (count != null && count == total - remaining))
+            if (remaining == 0)
                 return total - toInsert + remaining;
             // We have leftover, keep going to next slots and try to insert it
             stackToInsert.setCount(remaining);
@@ -418,7 +418,7 @@ public class ItemChannelSettings extends DefaultChannelSettings implements IChan
                 continue;
             int remaining = insertToSlot(from, to, stackToInsert, extractSettings, extractIdx, slot);
             // We inserted as much as we wanted/could, finish
-            if (remaining == 0 || (count != null && count == total - remaining))
+            if (remaining == 0)
                 return total - toInsert + remaining;
             // We have leftover, keep going to next slots and try to insert it
             stackToInsert.setCount(remaining);
