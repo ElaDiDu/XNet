@@ -397,13 +397,13 @@ public class ItemChannelSettings extends DefaultChannelSettings implements IChan
             if (slots <= slotExact)
                 return total;
 
-            return total - toInsert + insertToSlot(from, to, stackToInsert, extractSettings, total, toInsert, extractIdx, slotExact, count);
+            return total - toInsert + insertToSlot(from, to, stackToInsert, extractSettings, extractIdx, slotExact);
         }
 
         // Priority slots to stack already existing items with the limited item filter, as opposed to fragmenting them in multiple slots.
         for (int slot : prioritySlots)
         {
-            int remaining = insertToSlot(from, to, stackToInsert, extractSettings, total, toInsert, extractIdx, slot, count);
+            int remaining = insertToSlot(from, to, stackToInsert, extractSettings, extractIdx, slot);
             // We inserted as much as we wanted/could, finish
             if (remaining == 0 || (count != null && count == total - remaining))
                 return total - toInsert + remaining;
@@ -416,7 +416,7 @@ public class ItemChannelSettings extends DefaultChannelSettings implements IChan
             // Small optimization for count filter, 1 boolean check first should mean almost no overhead for non count filter
             if (hasPrioritySlots && prioritySlots.contains(slot))
                 continue;
-            int remaining = insertToSlot(from, to, stackToInsert, extractSettings, total, toInsert, extractIdx, slot, count);
+            int remaining = insertToSlot(from, to, stackToInsert, extractSettings, extractIdx, slot);
             // We inserted as much as we wanted/could, finish
             if (remaining == 0 || (count != null && count == total - remaining))
                 return total - toInsert + remaining;
@@ -432,9 +432,9 @@ public class ItemChannelSettings extends DefaultChannelSettings implements IChan
      * @return remaining item count that wasn't inserted
      */
     private int insertToSlot(@Nonnull IItemHandler from, @Nonnull IItemHandler to, @Nonnull ItemStack stackToInsert,
-                             ItemConnectorSettings extractSettings, int total, int toInsert,
-                             int extractIdx, int slot, Integer neededToInsert)
+                             ItemConnectorSettings extractSettings, int extractIdx, int slot)
     {
+        int toInsert = stackToInsert.getCount();
         ItemStack remaining = to.insertItem(slot, stackToInsert, true);
 
         // Stack inserted successfully
@@ -452,10 +452,6 @@ public class ItemChannelSettings extends DefaultChannelSettings implements IChan
                     extractIdx);
             // Insert for real
             to.insertItem(slot, realInsert, false);
-
-            // We inserted as much as we wanted/could, finish
-            if (remaining.isEmpty())
-                return 0;
         }
         return remaining.getCount();
     }
