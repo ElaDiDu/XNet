@@ -1,6 +1,8 @@
 package mcjty.xnet.apiimpl.energy;
 
+import cofh.redstoneflux.api.IEnergyHandler;
 import com.google.gson.JsonObject;
+import it.unimi.dsi.fastutil.objects.Object2IntOpenHashMap;
 import mcjty.lib.varia.EnergyTools;
 import mcjty.lib.varia.WorldTools;
 import mcjty.xnet.XNet;
@@ -11,6 +13,7 @@ import mcjty.xnet.api.gui.IEditorGui;
 import mcjty.xnet.api.gui.IndicatorIcon;
 import mcjty.xnet.api.helper.DefaultChannelSettings;
 import mcjty.xnet.api.keys.SidedConsumer;
+import mcjty.xnet.apiimpl.fluids.FluidConnectorSettings;
 import mcjty.xnet.blocks.cables.ConnectorBlock;
 import mcjty.xnet.blocks.cables.ConnectorTileEntity;
 import mcjty.xnet.config.ConfigSetup;
@@ -22,7 +25,10 @@ import net.minecraft.util.math.BlockPos;
 import net.minecraft.world.World;
 import net.minecraftforge.energy.CapabilityEnergy;
 import net.minecraftforge.energy.IEnergyStorage;
+import net.minecraftforge.fluids.FluidStack;
+import net.minecraftforge.fluids.capability.IFluidHandler;
 import org.apache.commons.lang3.tuple.Pair;
+import org.apache.commons.lang3.tuple.Triple;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
@@ -64,7 +70,8 @@ public class EnergyChannelSettings extends DefaultChannelSettings implements ICh
     }
 
     @Override
-    public void tick(int channel, IControllerContext context) {
+    public void tick(int channel, IControllerContext context)
+    {
         updateCache(channel, context);
 
         World world = context.getControllerWorld();
@@ -76,90 +83,153 @@ public class EnergyChannelSettings extends DefaultChannelSettings implements ICh
         Map<BlockPos, Integer> alreadyHandled = new HashMap<>();
 
         List<Pair<ConnectorTileEntity, Integer>> energyProducers = new ArrayList<>();
-        for (Pair<SidedConsumer, EnergyConnectorSettings> entry : energyExtractors) {
+        for (Pair<SidedConsumer, EnergyConnectorSettings> entry : energyExtractors)
+        {
+            EnergyConnectorSettings settings = entry.getValue();
             BlockPos connectorPos = context.findConsumerPosition(entry.getKey().getConsumerId());
-            if (connectorPos != null) {
+            if (connectorPos == null)
+                continue;
 
-                EnumFacing side = entry.getKey().getSide();
-                BlockPos energyPos = connectorPos.offset(side);
-                if (!WorldTools.chunkLoaded(world, energyPos)) {
+            EnumFacing side = entry.getKey().getSide();
+            BlockPos energyPos = connectorPos.offset(side);
+            if (!WorldTools.chunkLoaded(world, energyPos))
+                continue;
+            if (checkRedstone(world, settings, connectorPos))
+                continue;
+            if (!context.matchColor(settings.getColorsMask()))
+                continue;
+
+            TileEntity te = world.getTileEntity(energyPos);
+            IEnergyStorage handler = getEnergyHandlerAt(te, settings.getFacing());
+            if (handler == null)
+                continue;
+
+            tickEnergyHandler(context, settings, connectorPos, handler);
+        }
+    }
+
+    private void tickEnergyHandler(IControllerContext context, EnergyConnectorSettings settings, BlockPos extractorPos , IEnergyStorage handler)
+    {
+        World world = context.getControllerWorld();
+        Integer count = settings.getMinmax();
+        if (count != null) {
+            if (handler.getEnergyStored() < count)
+                return;
+        }
+
+        if (context.checkAndConsumeRF(ConfigSetup.controllerOperationRFT.get()))
+        {
+            int rate = getRate(settings, world, extractorPos);
+            int extractedEnergy = handler.extractEnergy(rate, true);
+            if (extractedEnergy == 0)
+                return;
+
+            int toExtract = extractedEnergy;
+            if (count != null)
+            {
+                int canExtract = handler.getEnergyStored() - count;
+                if (canExtract <= 0)
+                    return;
+                if (canExtract < toExtract)
+                    toExtract = canExtract;
+            }
+
+            transferEnergy(handler, toExtract, context);
+        }
+    }
+
+    public void transferEnergy(@Nonnull IEnergyStorage from, int energyExtracted, @Nonnull IControllerContext context)
+    {
+        if (energyConsumers.isEmpty() || energyExtracted <= 0)
+            return;
+
+        List<Triple<IEnergyStorage, BlockPos, EnergyConnectorSettings>> canAcceptEnergy = new ArrayList<>();
+        World world = context.getControllerWorld();
+        int amountPerOutput = Math.max(1, energyExtracted / energyConsumers.size());
+        for (Pair<SidedConsumer, EnergyConnectorSettings> entry : energyConsumers)
+        {
+            BlockPos consumerPos = context.findConsumerPosition(entry.getKey().getConsumerId());
+            EnergyConnectorSettings insertSettings = entry.getValue();
+            if (!WorldTools.chunkLoaded(world, consumerPos))
+                continue;
+            if (checkRedstone(world, insertSettings, consumerPos))
+                continue;
+            if (!context.matchColor(insertSettings.getColorsMask()))
+                continue;
+
+            EnumFacing side = entry.getKey().getSide();
+            BlockPos pos = consumerPos.offset(side);
+            TileEntity te = world.getTileEntity(pos);
+
+            IEnergyStorage handler = getEnergyHandlerAt(te, insertSettings.getFacing());
+            if (handler == null)
+                return;
+
+            Integer count = insertSettings.getMinmax();
+            int rate = getRate(insertSettings, world, consumerPos);
+            int toInsert = Math.min(rate, energyExtracted);
+            if (count != null)
+            {
+                int amount = handler.getEnergyStored();
+                int canInsert = count - amount;
+                if (canInsert <= 0)
                     continue;
-                }
-
-                TileEntity te = world.getTileEntity(energyPos);
-                // @todo report error somewhere?
-                if (isEnergyTE(te, side.getOpposite())) {
-                    EnergyConnectorSettings settings = entry.getValue();
-                    ConnectorTileEntity connectorTE = (ConnectorTileEntity) world.getTileEntity(connectorPos);
-
-                    if (checkRedstone(world, settings, connectorPos)) {
-                        continue;
-                    }
-                    if (!context.matchColor(settings.getColorsMask())) {
-                        continue;
-                    }
-
-                    Integer count = settings.getMinmax();
-                    if (count != null) {
-                        int level = getEnergyLevel(te, side.getOpposite());
-                        if (level < count) {
-                            continue;
-                        }
-                    }
-
-                    Integer rate = settings.getRate();
-                    if (rate == null) {
-                        boolean advanced = ConnectorBlock.isAdvancedConnector(world, connectorPos);
-                        rate = advanced ? ConfigSetup.maxRfRateAdvanced.get() : ConfigSetup.maxRfRateNormal.get();
-                    }
-                    connectorTE.setEnergyInputFrom(side, rate);
-
-                    if (!alreadyHandled.containsKey(connectorPos)) {
-                        // We did not handle this connector yet. Remember the amount of energy in it
-                        alreadyHandled.put(connectorPos, connectorTE.getEnergy());
-                    }
-
-                    // Check how much energy we can still send from that connector
-                    int connectorEnergy = alreadyHandled.get(connectorPos);
-                    int tosend = Math.min(rate, connectorEnergy);
-                    if (tosend > 0) {
-                        // Decrease the energy from our temporary datastructure
-                        alreadyHandled.put(connectorPos, connectorEnergy - tosend);
-                        totalToDistribute += tosend;
-                        energyProducers.add(Pair.of(connectorTE, tosend));
-                    }
-                }
+                toInsert = Math.min(toInsert, canInsert);
             }
-        }
+            if (toInsert <= 0)
+                continue;
 
-        if (totalToDistribute <= 0) {
-            // Nothing to do
+            int received = handler.receiveEnergy(amountPerOutput, true);
+            if (received <= 0)
+                continue;
+            // After simulating receive, extract and receive for real
+            from.extractEnergy(received, false);
+            handler.receiveEnergy(received, false);
+            energyExtracted -= received;
+            canAcceptEnergy.add(Triple.of(handler, consumerPos, insertSettings));
+        }
+        // All energy used
+        if (energyExtracted == 0)
             return;
-        }
 
-        if (!context.checkAndConsumeRF(ConfigSetup.controllerOperationRFT.get())) {
-            // Not enough energy for this operation
-            return;
-        }
-
-        int actuallyConsumed = insertEnergy(context, totalToDistribute);
-        if (actuallyConsumed <= 0) {
-            // Nothing was done
-            return;
-        }
-
-        // Now we need to actually fetch the energy from the producers
-        for (Pair<ConnectorTileEntity, Integer> entry : energyProducers) {
-            ConnectorTileEntity connectorTE = entry.getKey();
-            int amount = entry.getValue();
-
-            int actuallySpent = Math.min(amount, actuallyConsumed);
-            connectorTE.setEnergy(connectorTE.getEnergy() - actuallySpent);
-            actuallyConsumed -= actuallySpent;
-            if (actuallyConsumed <= 0) {
-                break;
+        // We have left over, insert in "first takes all" manner
+        for (Triple<IEnergyStorage, BlockPos, EnergyConnectorSettings> entry : canAcceptEnergy)
+        {
+            EnergyConnectorSettings insertSettings = entry.getRight();
+            Integer count = insertSettings.getMinmax();
+            int rate = getRate(insertSettings, world, entry.getMiddle());
+            IEnergyStorage handler = entry.getLeft();
+            int toInsert = Math.min(rate, energyExtracted);
+            if (count != null)
+            {
+                int amount = handler.getEnergyStored();
+                int canInsert = count - amount;
+                if (canInsert <= 0)
+                    continue;
+                toInsert = Math.min(toInsert, canInsert);
             }
+            if (toInsert <= 0)
+                continue;
+
+            int received = handler.receiveEnergy(energyExtracted, true);
+            if (received <= 0)
+                continue;
+            // After simulating receive, extract and receive for real
+            from.extractEnergy(received, false);
+            handler.receiveEnergy(received, false);
+            energyExtracted -= received;
+            if (energyExtracted <= 0)
+                return;
         }
+    }
+
+    private static int getRate(EnergyConnectorSettings connector, World world, BlockPos pos)
+    {
+        Integer rate = connector.getRate();
+        if (rate != null)
+            return Math.max(0, rate);
+
+        return ConnectorBlock.isAdvancedConnector(world, pos) ? ConfigSetup.maxRfRateAdvanced.get() : ConfigSetup.maxRfRateNormal.get();
     }
 
     private int insertEnergy(@Nonnull IControllerContext context, int energy) {
@@ -211,14 +281,6 @@ public class EnergyChannelSettings extends DefaultChannelSettings implements ICh
         return total;
     }
 
-
-    public static boolean isEnergyTE(@Nullable TileEntity te, @Nonnull EnumFacing side) {
-        if (te == null) {
-            return false;
-        }
-        return te.hasCapability(CapabilityEnergy.ENERGY, side);
-    }
-
     public static int getEnergyLevel(TileEntity tileEntity, @Nonnull EnumFacing side) {
         if (tileEntity != null && tileEntity.hasCapability(CapabilityEnergy.ENERGY, side)) {
             IEnergyStorage energy = tileEntity.getCapability(CapabilityEnergy.ENERGY, side);
@@ -228,7 +290,23 @@ public class EnergyChannelSettings extends DefaultChannelSettings implements ICh
         }
     }
 
+    public static boolean isEnergyTE(@Nullable TileEntity te, @Nonnull EnumFacing side) {
+        if (te == null) {
+            return false;
+        }
+        return te.hasCapability(CapabilityEnergy.ENERGY, side);
+    }
 
+    @Nullable
+    public static IEnergyStorage getEnergyHandlerAt(@Nullable TileEntity te, EnumFacing facing)
+    {
+        if (te != null && te.hasCapability(CapabilityEnergy.ENERGY, facing))
+        {
+            IEnergyStorage handler = te.getCapability(CapabilityEnergy.ENERGY, facing);
+            return handler;
+        }
+        return null;
+    }
 
     @Override
     public void cleanCache() {

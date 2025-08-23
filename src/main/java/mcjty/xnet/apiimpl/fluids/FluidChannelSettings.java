@@ -260,7 +260,7 @@ public class FluidChannelSettings extends DefaultChannelSettings implements ICha
         return startIdx;
     }
 
-    private int getRate(FluidConnectorSettings connector, World world, BlockPos pos)
+    private static int getRate(FluidConnectorSettings connector, World world, BlockPos pos)
     {
         Integer rate = connector.getRate();
         if (rate != null)
@@ -354,7 +354,6 @@ public class FluidChannelSettings extends DefaultChannelSettings implements ICha
             EnumFacing side = entry.getKey().getSide();
             BlockPos pos = consumerPos.offset(side);
             TileEntity te = world.getTileEntity(pos);
-
 
             IFluidHandler handler = getFluidHandlerAt(te, insertSettings.getFacing());
             if (handler == null)
