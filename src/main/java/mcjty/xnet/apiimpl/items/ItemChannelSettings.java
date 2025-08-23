@@ -47,6 +47,7 @@ public class ItemChannelSettings extends DefaultChannelSettings implements IChan
     // Cache data
     private Map<SidedConsumer, ItemConnectorSettings> itemExtractors = null;
     private List<Pair<SidedConsumer, ItemConnectorSettings>> itemConsumers = null;
+    private HashMap<BlockPos, TileEntity> tilesCache = new HashMap<>();
 
 
     public enum ChannelMode {
@@ -124,6 +125,7 @@ public class ItemChannelSettings extends DefaultChannelSettings implements IChan
         delay--;
         if (delay <= 0) {
             delay = 200*6;      // Multiply of the different speeds we have
+            cleanTilesCache();
         }
         if (delay % 5 != 0) {
             return;
@@ -154,7 +156,7 @@ public class ItemChannelSettings extends DefaultChannelSettings implements IChan
                     continue;
                 }
 
-                TileEntity te = world.getTileEntity(pos);
+                TileEntity te = getTileEntity(world, pos);
 
                 if (ModSetup.rftools && RFToolsSupport.isStorageScanner(te)) {
                     RFToolsSupport.tickStorageScanner(context, settings, te, this);
@@ -326,7 +328,7 @@ public class ItemChannelSettings extends DefaultChannelSettings implements IChan
 
             EnumFacing side = entry.getKey().getSide();
             BlockPos pos = consumerPos.offset(side);
-            TileEntity te = world.getTileEntity(pos);
+            TileEntity te = getTileEntity(world, pos);
 
             int remaining;
             if (ModSetup.rftools && RFToolsSupport.isStorageScanner(te))
@@ -528,7 +530,7 @@ public class ItemChannelSettings extends DefaultChannelSettings implements IChan
 
                     EnumFacing side = entry.getKey().getSide();
                     BlockPos pos = consumerPos.offset(side);
-                    TileEntity te = world.getTileEntity(pos);
+                    TileEntity te = getTileEntity(world, pos);
                     int actuallyinserted = 0;
                     int toinsert = total;
                     ItemStack remaining;
@@ -595,7 +597,7 @@ public class ItemChannelSettings extends DefaultChannelSettings implements IChan
             EnumFacing side = entry.getKey().getSide();
             ItemConnectorSettings settings = entry.getValue();
             BlockPos pos = consumerPosition.offset(side);
-            TileEntity te = context.getControllerWorld().getTileEntity(pos);
+            TileEntity te = getTileEntity(context.getControllerWorld(), pos);
             if (ModSetup.rftools && RFToolsSupport.isStorageScanner(te)) {
                 int toinsert = total;
                 Integer count = settings.getCount();
@@ -710,6 +712,34 @@ public class ItemChannelSettings extends DefaultChannelSettings implements IChan
         return ItemStack.EMPTY;
     }
 
+    @Nullable
+    private TileEntity getTileEntity(World world, BlockPos pos)
+    {
+        TileEntity te = tilesCache.get(pos);
+        if (te != null)
+        {
+            if (te.isInvalid())
+            {
+                tilesCache.remove(pos);
+                te = world.getTileEntity(pos);
+                if (te != null)
+                    tilesCache.put(pos, te);
+            }
+            return te;
+        }
+        else
+        {
+            te = world.getTileEntity(pos);
+            if (te != null)
+                tilesCache.put(pos, te);
+            return  te;
+        }
+    }
+
+    private void cleanTilesCache()
+    {
+        tilesCache.entrySet().removeIf(entry -> entry.getValue().isInvalid());
+    }
 
     private void updateCache(int channel, IControllerContext context) {
         if (itemExtractors == null) {

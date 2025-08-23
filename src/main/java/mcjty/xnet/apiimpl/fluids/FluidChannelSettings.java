@@ -55,6 +55,7 @@ public class FluidChannelSettings extends DefaultChannelSettings implements ICha
     private Map<SidedConsumer, FluidConnectorSettings> fluidExtractors = null;
     private List<Pair<SidedConsumer, FluidConnectorSettings>> fluidConsumers = null;
     private Map<ConsumerId, Integer> extractIndices = new HashMap<>();
+    private HashMap<BlockPos, TileEntity> tilesCache = new HashMap<>();
 
     public ChannelMode getChannelMode()
     {
@@ -113,6 +114,7 @@ public class FluidChannelSettings extends DefaultChannelSettings implements ICha
         if (delay <= 0)
         {
             delay = 200 * 6;      // Multiply of the different speeds we have
+            cleanTilesCache();
         }
         if (delay % 10 != 0)
         {
@@ -144,7 +146,7 @@ public class FluidChannelSettings extends DefaultChannelSettings implements ICha
                 if (!context.matchColor(settings.getColorsMask()))
                     continue;
 
-                TileEntity te = world.getTileEntity(pos);
+                TileEntity te = getTileEntity(world, pos);
                 IFluidHandler handler = getFluidHandlerAt(te, settings.getFacing());
                 if (handler == null)
                     continue;
@@ -353,7 +355,7 @@ public class FluidChannelSettings extends DefaultChannelSettings implements ICha
 
             EnumFacing side = entry.getKey().getSide();
             BlockPos pos = consumerPos.offset(side);
-            TileEntity te = world.getTileEntity(pos);
+            TileEntity te = getTileEntity(world, pos);
 
             IFluidHandler handler = getFluidHandlerAt(te, insertSettings.getFacing());
             if (handler == null)
@@ -445,7 +447,7 @@ public class FluidChannelSettings extends DefaultChannelSettings implements ICha
 
                 EnumFacing side = entry.getKey().getSide();
                 BlockPos pos = consumerPos.offset(side);
-                TileEntity te = world.getTileEntity(pos);
+                TileEntity te = getTileEntity(world, pos);
                 IFluidHandler handler = getFluidHandlerAt(te, settings.getFacing());
                 if (handler == null)
                     continue;
@@ -480,7 +482,7 @@ public class FluidChannelSettings extends DefaultChannelSettings implements ICha
             BlockPos consumerPos = context.findConsumerPosition(consumerConnector.getKey().getConsumerId());
             EnumFacing side = consumerConnector.getKey().getSide();
             BlockPos pos = consumerPos.offset(side);
-            TileEntity te = world.getTileEntity(pos);
+            TileEntity te = getTileEntity(world, pos);
             IFluidHandler handler = getFluidHandlerAt(te, settings.getFacing());
 
             FluidStack copy = stack.copy();
@@ -511,7 +513,7 @@ public class FluidChannelSettings extends DefaultChannelSettings implements ICha
             BlockPos consumerPos = context.findConsumerPosition(consumerConnector.getKey().getConsumerId());
             EnumFacing side = consumerConnector.getKey().getSide();
             BlockPos pos = consumerPos.offset(side);
-            TileEntity te = world.getTileEntity(pos);
+            TileEntity te = getTileEntity(world, pos);
             IFluidHandler handler = getFluidHandlerAt(te, settings.getFacing());
 
             Integer count = settings.getMinmax();
@@ -570,6 +572,35 @@ public class FluidChannelSettings extends DefaultChannelSettings implements ICha
 
             fluidConsumers.sort((o1, o2) -> o2.getRight().getPriority().compareTo(o1.getRight().getPriority()));
         }
+    }
+
+    @Nullable
+    private TileEntity getTileEntity(World world, BlockPos pos)
+    {
+        TileEntity te = tilesCache.get(pos);
+        if (te != null)
+        {
+            if (te.isInvalid())
+            {
+                tilesCache.remove(pos);
+                te = world.getTileEntity(pos);
+                if (te != null)
+                    tilesCache.put(pos, te);
+            }
+            return te;
+        }
+        else
+        {
+            te = world.getTileEntity(pos);
+            if (te != null)
+                tilesCache.put(pos, te);
+            return  te;
+        }
+    }
+
+    private void cleanTilesCache()
+    {
+        tilesCache.entrySet().removeIf(entry -> entry.getValue().isInvalid());
     }
 
     @Override
