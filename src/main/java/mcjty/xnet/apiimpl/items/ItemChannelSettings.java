@@ -410,7 +410,7 @@ public class ItemChannelSettings extends DefaultChannelSettings implements IChan
             // We have leftover, keep going to next slots and try to insert it
             stackToInsert.setCount(remaining);
         }
-        boolean hasPrioritySlots = prioritySlots.isEmpty();
+        boolean hasPrioritySlots = !prioritySlots.isEmpty();
         for (int slot = 0; slot < slots; slot++)
         {
             // Small optimization for count filter, 1 boolean check first should mean almost no overhead for non count filter
