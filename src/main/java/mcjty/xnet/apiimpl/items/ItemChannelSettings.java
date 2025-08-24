@@ -3,6 +3,7 @@ package mcjty.xnet.apiimpl.items;
 import com.google.common.collect.ImmutableList;
 import com.google.gson.JsonObject;
 import com.google.gson.JsonPrimitive;
+import com.jaquadro.minecraft.storagedrawers.api.capabilities.IItemRepository;
 import mcjty.lib.varia.WorldTools;
 import mcjty.xnet.XNet;
 import mcjty.xnet.api.channels.IChannelSettings;
@@ -26,6 +27,8 @@ import net.minecraft.util.EnumFacing;
 import net.minecraft.util.ResourceLocation;
 import net.minecraft.util.math.BlockPos;
 import net.minecraft.world.World;
+import net.minecraftforge.common.capabilities.Capability;
+import net.minecraftforge.common.capabilities.CapabilityInject;
 import net.minecraftforge.items.CapabilityItemHandler;
 import net.minecraftforge.items.IItemHandler;
 import net.minecraftforge.items.ItemHandlerHelper;
@@ -43,6 +46,9 @@ public class ItemChannelSettings extends DefaultChannelSettings implements IChan
     public static final ResourceLocation iconGuiElements = new ResourceLocation(XNet.MODID, "textures/gui/guielements.png");
 
     public static final String TAG_MODE = "mode";
+
+    @CapabilityInject(IItemRepository.class)
+    public static Capability<IItemRepository> ITEM_REPOSITORY_CAPABILITY = null;
 
     // Cache data
     private Map<SidedConsumer, ItemConnectorSettings> itemExtractors = null;
@@ -331,9 +337,15 @@ public class ItemChannelSettings extends DefaultChannelSettings implements IChan
             TileEntity te = getTileEntity(world, pos);
 
             int remaining;
+            IItemRepository repo;
             if (ModSetup.rftools && RFToolsSupport.isStorageScanner(te))
             {
                 remaining = insertToStorageScanner(from, te, stack, extractSettings, insertSettings, extractIdx);
+            }
+            else if (te != null && (repo = getItemRepository(te, insertSettings.getFacing())) != null &&
+                     insertSettings.getSlot() == null /* no slot specific behavior to repository */)
+            {
+                remaining = insertToItemRepository(from, repo, stack, extractSettings, insertSettings, extractIdx);
             }
             else
             {
@@ -382,8 +394,6 @@ public class ItemChannelSettings extends DefaultChannelSettings implements IChan
             {
                 prioritySlots = neededAndLocations.existingStackLocations;
                 toInsert = Math.min(toInsert, neededAndLocations.needed);
-                if (count != null)
-                    count = Math.min(count, neededAndLocations.needed);
             }
         }
 
@@ -456,6 +466,57 @@ public class ItemChannelSettings extends DefaultChannelSettings implements IChan
             to.insertItem(slot, realInsert, false);
         }
         return remaining.getCount();
+    }
+
+    /**
+     * Returns how many items remaining
+     */
+    public static int insertToItemRepository(@Nonnull IItemHandler from, @Nonnull IItemRepository to, @Nonnull ItemStack stack,
+                                             @Nonnull ItemConnectorSettings extractSettings, @Nonnull ItemConnectorSettings insertSettings,
+                                             int extractIdx)
+    {
+        Integer maxCount = insertSettings.getCount();
+        int total = stack.getCount();
+        int toInsert = total;
+        if (maxCount != null)
+        {
+            int amount = countItems(to, insertSettings.getMatcher());
+            int canInsert = maxCount - amount;
+            if (canInsert <= 0)
+                return total;
+
+            toInsert = Math.min(toInsert, canInsert);
+        }
+        if (!insertSettings.isBlacklist() && insertSettings.isCountMode())
+        {
+            int needed = insertSettings.itemsNeededToSatisfyFilter(to, stack);
+            toInsert = Math.min(toInsert, needed);
+        }
+
+        if (toInsert <= 0)
+            return total;
+        ItemStack stackToInsert = stack.copy();
+        stackToInsert.setCount(toInsert);
+
+        ItemStack remaining = to.insertItem(stackToInsert, true);
+        // Stack inserted successfully
+        if (remaining.getCount() < toInsert)
+        {
+            // Assume the result of both the extract and insert simulate is the same, otherwise... that mod's problem
+
+            // Extract the exact amount for real
+            int itemsInserted = toInsert - remaining.getCount();
+            ItemStack realInsert = ItemChannelSettings.fetchItem(from, false,
+                    extractSettings.getMatcher(),
+                    extractSettings.getStackMode(),
+                    extractSettings.getExtractAmount(),
+                    itemsInserted,
+                    extractIdx);
+            // Insert for real
+            to.insertItem(realInsert, false);
+        }
+
+        return total - toInsert + remaining.getCount();
     }
 
     /**
@@ -675,7 +736,7 @@ public class ItemChannelSettings extends DefaultChannelSettings implements IChan
     }
 
 
-    private ItemStack fetchItem(IItemHandler handler, boolean simulate, Predicate<ItemStack> matcher, ItemConnectorSettings.StackMode stackMode, int extractAmount, int maxamount, int idx)
+    public static ItemStack fetchItem(IItemHandler handler, boolean simulate, Predicate<ItemStack> matcher, ItemConnectorSettings.StackMode stackMode, int extractAmount, int maxamount, int idx)
     {
         if (handler.getSlots() <= 0)
         {
@@ -710,6 +771,17 @@ public class ItemChannelSettings extends DefaultChannelSettings implements IChan
         }
 
         return ItemStack.EMPTY;
+    }
+
+    private static int countItems(IItemRepository repository, Predicate<ItemStack> matcher)
+    {
+        long cnt = 0;
+        List<IItemRepository.ItemRecord> records = repository.getAllItems();
+        for (IItemRepository.ItemRecord record : records)
+            if (matcher.test(record.itemPrototype))
+                cnt += record.count;
+
+        return (int)Math.min(cnt, Integer.MAX_VALUE);
     }
 
     @Nullable
@@ -819,5 +891,10 @@ public class ItemChannelSettings extends DefaultChannelSettings implements IChan
         return null;
     }
 
-
+    @Nullable
+    public static IItemRepository getItemRepository(@Nonnull TileEntity te, EnumFacing facing)
+    {
+        return ITEM_REPOSITORY_CAPABILITY == null ? null :
+                te.getCapability(ITEM_REPOSITORY_CAPABILITY, facing);
+    }
 }

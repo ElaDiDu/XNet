@@ -2,8 +2,10 @@ package mcjty.xnet.apiimpl.items;
 
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Sets;
+import com.jaquadro.minecraft.storagedrawers.api.capabilities.IItemRepository;
 import mcjty.lib.varia.ItemStackList;
 import mcjty.xnet.compat.ForestrySupport;
+import net.minecraft.item.ItemRecord;
 import net.minecraft.item.ItemStack;
 import net.minecraftforge.items.IItemHandler;
 import net.minecraftforge.oredict.OreDictionary;
@@ -157,7 +159,7 @@ public class ItemFilterCache {
             return null;
 
         int needed = Integer.MAX_VALUE;
-        int cnt = 0;
+        long cnt = 0;
         boolean found = false;
         for (ItemStack filterStack : stacks)
         {
@@ -190,8 +192,38 @@ public class ItemFilterCache {
             }
         }
 
-        return new ItemsNeededLocations(Math.max(needed - cnt, 0), locations);
+        return new ItemsNeededLocations((int)Math.max(needed - cnt, 0), locations);
 
+    }
+
+    public int itemsNeededToSatisfyFilter(IItemRepository repository, ItemStack stack)
+    {
+        if (stacks == null)
+            return Integer.MAX_VALUE;
+
+        int needed = Integer.MAX_VALUE;
+        boolean found = false;
+        for (ItemStack filterStack : stacks)
+        {
+            if (itemMatchesFilterItem(filterStack, stack))
+            {
+                needed = filterStack.getCount();
+                // Needed for oredict cache, matching filter is transitive anyways
+                stack = filterStack;
+                found = true;
+                break;
+            }
+        }
+        if (!found)
+            return Integer.MAX_VALUE;
+
+        long cnt = 0;
+        List<IItemRepository.ItemRecord> records = repository.getAllItems();
+        for (IItemRepository.ItemRecord record : records)
+            if (itemMatchesFilterItem(stack, record.itemPrototype))
+                cnt += record.count;
+
+        return (int)Math.max(needed - cnt, 0);
     }
 
     public static class ItemsNeededLocations

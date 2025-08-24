@@ -3,6 +3,7 @@ package mcjty.xnet.apiimpl.items;
 import com.google.common.collect.ImmutableSet;
 import com.google.gson.JsonObject;
 import com.google.gson.JsonPrimitive;
+import com.jaquadro.minecraft.storagedrawers.api.capabilities.IItemRepository;
 import mcjty.lib.varia.ItemStackList;
 import mcjty.lib.varia.ItemStackTools;
 import mcjty.xnet.XNet;
@@ -169,22 +170,7 @@ public class ItemConnectorSettings extends AbstractConnectorSettings {
     }
 
     public Predicate<ItemStack> getMatcher() {
-        if (matcher == null) {
-            ItemStackList filterList = ItemStackList.create();
-            for (ItemStack stack : filters) {
-                if (!stack.isEmpty()) {
-                    filterList.add(stack);
-                }
-            }
-            if (filterList.isEmpty()) {
-                matcher = itemStack -> true;
-                itemFilterCache = null;
-            } else {
-                ItemFilterCache filterCache = new ItemFilterCache(metaMode, oredictMode, blacklist, nbtMode, filterList);
-                matcher = filterCache::match;
-                itemFilterCache = filterCache;
-            }
-        }
+        updateMatcherAndFilterCache();
         return matcher;
     }
 
@@ -193,6 +179,27 @@ public class ItemConnectorSettings extends AbstractConnectorSettings {
      */
     @Nullable
     public ItemFilterCache.ItemsNeededLocations itemsNeededToSatisfyFilter(IItemHandler handler, ItemStack stack)
+    {
+        updateMatcherAndFilterCache();
+        if (itemFilterCache == null)
+            return null;
+
+        return itemFilterCache.itemsNeededToSatisfyFilter(handler, stack);
+    }
+
+    /**
+     * @return the amount of items needed from stack to satisfy the filter
+     */
+    public int itemsNeededToSatisfyFilter(IItemRepository repository, ItemStack stack)
+    {
+        updateMatcherAndFilterCache();
+        if (itemFilterCache == null)
+            return Integer.MAX_VALUE;
+
+        return itemFilterCache.itemsNeededToSatisfyFilter(repository, stack);
+    }
+
+    private void updateMatcherAndFilterCache()
     {
         if (matcher == null) {
             ItemStackList filterList = ItemStackList.create();
@@ -210,10 +217,6 @@ public class ItemConnectorSettings extends AbstractConnectorSettings {
                 itemFilterCache = filterCache;
             }
         }
-        if (itemFilterCache == null)
-            return null;
-
-        return itemFilterCache.itemsNeededToSatisfyFilter(handler, stack);
     }
 
     public StackMode getStackMode() {
