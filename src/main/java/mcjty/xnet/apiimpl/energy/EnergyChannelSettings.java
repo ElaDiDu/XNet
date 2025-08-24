@@ -35,9 +35,6 @@ public class EnergyChannelSettings extends DefaultChannelSettings implements ICh
     // Cache data
     private List<Pair<SidedConsumer, EnergyConnectorSettings>> energyExtractors = null;
     private List<Pair<SidedConsumer, EnergyConnectorSettings>> energyConsumers = null;
-    private HashMap<BlockPos, TileEntity> tilesCache = new HashMap<>();
-
-    private int delay = 0;
 
     @Override
     public JsonObject writeToJson() {
@@ -52,12 +49,10 @@ public class EnergyChannelSettings extends DefaultChannelSettings implements ICh
 
     @Override
     public void readFromNBT(NBTTagCompound tag) {
-        delay = tag.getInteger("delay");
     }
 
     @Override
     public void writeToNBT(NBTTagCompound tag) {
-        tag.setInteger("delay", delay);
     }
 
     @Override
@@ -68,12 +63,6 @@ public class EnergyChannelSettings extends DefaultChannelSettings implements ICh
     @Override
     public void tick(int channel, IControllerContext context)
     {
-        delay--;
-        if (delay <= 0)
-        {
-            delay = 1200;
-            cleanTilesCache();
-        }
         updateCache(channel, context);
 
         World world = context.getControllerWorld();
@@ -94,13 +83,13 @@ public class EnergyChannelSettings extends DefaultChannelSettings implements ICh
             if (!context.matchColor(settings.getColorsMask()))
                 continue;
 
-            TileEntity te = getTileEntity(world, energyPos);
+            TileEntity te = world.getTileEntity(energyPos);
             IEnergyStorage handler = getEnergyHandlerAt(te, settings.getFacing());
             if (handler == null)
                 continue;
 
             ConnectorTileEntity connectorTile = null;
-            if (getTileEntity(world, connectorPos) instanceof ConnectorTileEntity connectorTE)
+            if (world.getTileEntity(connectorPos) instanceof ConnectorTileEntity connectorTE)
                 connectorTile = connectorTE;
             tickEnergyHandler(context, settings, connectorPos, handler, connectorTile, entry.getKey().getSide());
         }
@@ -159,7 +148,7 @@ public class EnergyChannelSettings extends DefaultChannelSettings implements ICh
 
             EnumFacing side = entry.getKey().getSide();
             BlockPos pos = consumerPos.offset(side);
-            TileEntity te = getTileEntity(world, pos);
+            TileEntity te = world.getTileEntity(pos);
 
             IEnergyStorage handler = getEnergyHandlerAt(te, insertSettings.getFacing());
             if (handler == null)
@@ -269,36 +258,6 @@ public class EnergyChannelSettings extends DefaultChannelSettings implements ICh
             return handler;
         }
         return null;
-    }
-
-    @Nullable
-    private TileEntity getTileEntity(World world, BlockPos pos)
-    {
-        TileEntity te = tilesCache.get(pos);
-        if (te != null)
-        {
-            if (te.isInvalid())
-            {
-                tilesCache.remove(pos);
-                te = world.getTileEntity(pos);
-                if (te != null)
-                    tilesCache.put(pos, te);
-            }
-            return te;
-        }
-        else
-        {
-            tilesCache.remove(pos);
-            te = world.getTileEntity(pos);
-            if (te != null)
-                tilesCache.put(pos, te);
-            return  te;
-        }
-    }
-
-    private void cleanTilesCache()
-    {
-        tilesCache.clear();
     }
 
     @Override

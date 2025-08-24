@@ -33,7 +33,6 @@ public class LogicChannelSettings extends DefaultChannelSettings implements ICha
     private int colors = 0;     // Colors for this channel
     private List<Pair<SidedConsumer, LogicConnectorSettings>> sensors = null;
     private List<Pair<SidedConsumer, LogicConnectorSettings>> outputs = null;
-    private HashMap<BlockPos, TileEntity> tilesCache = new HashMap<>();
 
     @Override
     public JsonObject writeToJson() {
@@ -68,7 +67,6 @@ public class LogicChannelSettings extends DefaultChannelSettings implements ICha
         delay--;
         if (delay <= 0) {
             delay = 200 * 6;      // Multiply of the different speeds we have
-            cleanTilesCache();
         }
         if (delay % 5 != 0) {
             return;
@@ -105,7 +103,7 @@ public class LogicChannelSettings extends DefaultChannelSettings implements ICha
 
                 // If sense is false the sensor is disabled which means the colors from it will also be disabled
                 if (sense) {
-                    TileEntity te = getTileEntity(world, pos);
+                    TileEntity te = world.getTileEntity(pos);
 
                     for (Sensor sensor : settings.getSensors()) {
                         if (sensor.test(te, world, pos, settings)) {
@@ -131,7 +129,7 @@ public class LogicChannelSettings extends DefaultChannelSettings implements ICha
                     continue;
                 }
 
-                TileEntity te = getTileEntity(world, connectorPos);
+                TileEntity te = world.getTileEntity(connectorPos);
                 if (te instanceof ConnectorTileEntity) {
                     ConnectorTileEntity connectorTE = (ConnectorTileEntity) te;
                     int powerOut;
@@ -146,35 +144,6 @@ public class LogicChannelSettings extends DefaultChannelSettings implements ICha
                 }
             }
         }
-    }
-
-    @Nullable
-    private TileEntity getTileEntity(World world, BlockPos pos)
-    {
-        TileEntity te = tilesCache.get(pos);
-        if (te != null)
-        {
-            if (te.isInvalid())
-            {
-                tilesCache.remove(pos);
-                te = world.getTileEntity(pos);
-                if (te != null)
-                    tilesCache.put(pos, te);
-            }
-            return te;
-        }
-        else
-        {
-            te = world.getTileEntity(pos);
-            if (te != null)
-                tilesCache.put(pos, te);
-            return  te;
-        }
-    }
-
-    private void cleanTilesCache()
-    {
-        tilesCache.clear();
     }
 
     private void updateCache(int channel, IControllerContext context) {
