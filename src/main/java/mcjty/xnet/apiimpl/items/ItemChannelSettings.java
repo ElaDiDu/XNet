@@ -233,6 +233,8 @@ public class ItemChannelSettings extends DefaultChannelSettings implements IChan
                 if (slots <= startIdx)
                     return 0;
                 ItemStack stack = getSimulateExtractStack(settings, handler, startIdx, extractMatcher, amount);
+                if (stack.isEmpty())
+                    return startIdx;
                 boolean transferred = transferStack(handler, stack, settings, startIdx, context);
                 return startIdx;
             }
@@ -303,6 +305,8 @@ public class ItemChannelSettings extends DefaultChannelSettings implements IChan
         if (channelMode == ChannelMode.PRIORITY)
             roundRobinOffset = 0;       // Always start at 0
 
+        ItemStack original = stack;
+        stack = stack.copy();
         int originalCount = stack.getCount();
         for (int j = 0; j < itemConsumers.size(); j++)
         {
@@ -341,15 +345,23 @@ public class ItemChannelSettings extends DefaultChannelSettings implements IChan
 
                 remaining = insertToHandler(from, handler, stack, extractSettings, insertSettings, extractIdx);
             }
+
+            stack.setCount(remaining);
             // Round robin inserts to 1 inventory only
             if (channelMode == ChannelMode.ROUNDROBIN && originalCount != remaining)
-                return true;
+                break;
             if (remaining <= 0)
-                return true;
-            stack.setCount(remaining);
+                break;
         }
-
-        return originalCount != stack.getCount();
+        int itemsInserted = originalCount - stack.getCount();
+        int realExtracted = from.extractItem(extractIdx, itemsInserted, false).getCount();
+        if (realExtracted > itemsInserted)
+            XNet.setup.getLogger().warn("Network '{}' duped '{}', inserted: '{}', extracted: '{}'",
+                    context.getNetworkId().getId(), original, itemsInserted, realExtracted);// Item duping
+        else if (realExtracted < itemsInserted)
+            XNet.setup.getLogger().warn("Network '{}' voided '{}', inserted: '{}', extracted: '{}'",
+                    context.getNetworkId().getId(), original, itemsInserted, realExtracted);;// Item voiding
+        return itemsInserted > 0;
     }
 
     /**
@@ -380,8 +392,6 @@ public class ItemChannelSettings extends DefaultChannelSettings implements IChan
             {
                 prioritySlots = neededAndLocations.existingStackLocations;
                 toInsert = Math.min(toInsert, neededAndLocations.needed);
-                if (count != null)
-                    count = Math.min(count, neededAndLocations.needed);
             }
         }
 
@@ -397,16 +407,15 @@ public class ItemChannelSettings extends DefaultChannelSettings implements IChan
             if (slots <= slotExact)
                 return total;
 
-            return total - toInsert + insertToSlot(from, to, stackToInsert, extractSettings, extractIdx, slotExact);
+            return total - toInsert + to.insertItem(slotExact, stackToInsert, false).getCount();
         }
 
         // Priority slots to stack already existing items with the limited item filter, as opposed to fragmenting them in multiple slots.
         for (int slot : prioritySlots)
         {
-            int remaining = insertToSlot(from, to, stackToInsert, extractSettings, extractIdx, slot);
-            // We inserted as much as we wanted/could, finish
+            int remaining = to.insertItem(slot, stackToInsert, false).getCount();
             if (remaining == 0)
-                return total - toInsert + remaining;
+                return total - toInsert;
             // We have leftover, keep going to next slots and try to insert it
             stackToInsert.setCount(remaining);
         }
@@ -416,44 +425,14 @@ public class ItemChannelSettings extends DefaultChannelSettings implements IChan
             // Small optimization for count filter, 1 boolean check first should mean almost no overhead for non count filter
             if (hasPrioritySlots && prioritySlots.contains(slot))
                 continue;
-            int remaining = insertToSlot(from, to, stackToInsert, extractSettings, extractIdx, slot);
-            // We inserted as much as we wanted/could, finish
+            int remaining = to.insertItem(slot, stackToInsert, false).getCount();;
             if (remaining == 0)
-                return total - toInsert + remaining;
+                return total - toInsert;
             // We have leftover, keep going to next slots and try to insert it
             stackToInsert.setCount(remaining);
         }
 
         return total - toInsert + stackToInsert.getCount();
-    }
-
-    /**
-     * Returns remaining item count that wasn't inserted, if the count is the same as stackToInsert, no insertion happened.
-     * @return remaining item count that wasn't inserted
-     */
-    private int insertToSlot(@Nonnull IItemHandler from, @Nonnull IItemHandler to, @Nonnull ItemStack stackToInsert,
-                             ItemConnectorSettings extractSettings, int extractIdx, int slot)
-    {
-        int toInsert = stackToInsert.getCount();
-        ItemStack remaining = to.insertItem(slot, stackToInsert, true);
-
-        // Stack inserted successfully
-        if (remaining.getCount() < stackToInsert.getCount())
-        {
-            // Assume the result of both the extract and insert simulate is the same, otherwise... that mod's problem
-
-            // Extract the exact amount for real
-            int itemsInserted = toInsert - remaining.getCount();
-            ItemStack realInsert = fetchItem(from, false,
-                    extractSettings.getMatcher(),
-                    extractSettings.getStackMode(),
-                    extractSettings.getExtractAmount(),
-                    itemsInserted,
-                    extractIdx);
-            // Insert for real
-            to.insertItem(slot, realInsert, false);
-        }
-        return remaining.getCount();
     }
 
     /**
