@@ -613,8 +613,9 @@ public class GuiController extends GenericGuiContainer<TileEntityController> {
 
             Panel panel = new Panel(mc, this).setLayout(new HorizontalLayout().setHorizontalMargin(0).setSpacing(0));
             if (!selectedText.isEmpty()) {
-                if (blockName.toLowerCase().contains(selectedText)) {
-                    panel.setFilledBackground(0xffddeeaa);
+                if (!blockName.toLowerCase().contains(selectedText)) {
+                    connectorPositions.add(sidedPos);
+                    continue;
                 }
             }
             BlockRender br;
