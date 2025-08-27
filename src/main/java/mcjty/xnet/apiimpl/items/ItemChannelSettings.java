@@ -355,12 +355,12 @@ public class ItemChannelSettings extends DefaultChannelSettings implements IChan
         }
         int itemsInserted = originalCount - stack.getCount();
         int realExtracted = from.extractItem(extractIdx, itemsInserted, false).getCount();
-        if (realExtracted > itemsInserted)
+        if (realExtracted < itemsInserted)
             XNet.setup.getLogger().warn("Network '{}' duped '{}', inserted: '{}', extracted: '{}'",
                     context.getNetworkId().getId(), original, itemsInserted, realExtracted);// Item duping
-        else if (realExtracted < itemsInserted)
-            XNet.setup.getLogger().warn("Network '{}' voided '{}', inserted: '{}', extracted: '{}'",
-                    context.getNetworkId().getId(), original, itemsInserted, realExtracted);;// Item voiding
+        //else if (realExtracted > itemsInserted)
+        //    XNet.setup.getLogger().warn("Network '{}' voided '{}', inserted: '{}', extracted: '{}'",
+        //            context.getNetworkId().getId(), original, itemsInserted, realExtracted);;// Item voiding
         return itemsInserted > 0;
     }
 
@@ -413,11 +413,11 @@ public class ItemChannelSettings extends DefaultChannelSettings implements IChan
         // Priority slots to stack already existing items with the limited item filter, as opposed to fragmenting them in multiple slots.
         for (int slot : prioritySlots)
         {
-            int remaining = to.insertItem(slot, stackToInsert, false).getCount();
-            if (remaining == 0)
+            ItemStack remaining = to.insertItem(slot, stackToInsert, false);
+            if (remaining.isEmpty())
                 return total - toInsert;
             // We have leftover, keep going to next slots and try to insert it
-            stackToInsert.setCount(remaining);
+            stackToInsert.setCount(remaining.getCount());
         }
         boolean hasPrioritySlots = !prioritySlots.isEmpty();
         for (int slot = 0; slot < slots; slot++)
@@ -425,11 +425,11 @@ public class ItemChannelSettings extends DefaultChannelSettings implements IChan
             // Small optimization for count filter, 1 boolean check first should mean almost no overhead for non count filter
             if (hasPrioritySlots && prioritySlots.contains(slot))
                 continue;
-            int remaining = to.insertItem(slot, stackToInsert, false).getCount();;
-            if (remaining == 0)
+            ItemStack remaining = to.insertItem(slot, stackToInsert, false);;
+            if (remaining.isEmpty())
                 return total - toInsert;
             // We have leftover, keep going to next slots and try to insert it
-            stackToInsert.setCount(remaining);
+            stackToInsert.setCount(remaining.getCount());
         }
 
         return total - toInsert + stackToInsert.getCount();
