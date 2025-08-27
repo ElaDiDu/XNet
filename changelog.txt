@@ -1,3 +1,7 @@
+1.8.14:
+- Changed item transfer logic for optimization and a rarely seen bug fix
+- GUI controller search now hides non matching connectors
+
 1.8.13:
 - Internal energy transfer logic overhaul
 
