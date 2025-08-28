@@ -1,3 +1,6 @@
+1.8.15:
+- Added JEI support to filters
+
 1.8.14:
 - Changed item transfer logic for optimization and a rarely seen bug fix
 - GUI controller search now hides non matching connectors
