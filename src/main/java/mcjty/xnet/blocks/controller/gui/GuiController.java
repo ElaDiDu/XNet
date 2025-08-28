@@ -757,19 +757,4 @@ public class GuiController extends GenericGuiContainer<TileEntityController> {
         else
             super.handleMouseClick(slotIn, slotId, mouseButton, type);
     }
-
-    public SidedPos getEditingConnector()
-    {
-        return editingConnector;
-    }
-
-    public Panel getConnectorEditPanel()
-    {
-        return connectorEditPanel;
-    }
-
-    public int getEditingChannel()
-    {
-        return editingChannel;
-    }
 }

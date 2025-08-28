@@ -1,5 +1,6 @@
 package mcjty.xnet.compat.jei;
 
+import mcjty.lib.gui.GenericGuiContainer;
 import mcjty.xnet.blocks.controller.gui.GuiController;
 import mezz.jei.api.IJeiRuntime;
 import mezz.jei.api.IModPlugin;
@@ -15,6 +16,6 @@ public class JEISupport implements IModPlugin
     @Override
     public void register(IModRegistry registry)
     {
-        registry.addGhostIngredientHandler(GuiController.class, new GhostSlotHandler());
+        registry.addGhostIngredientHandler(GenericGuiContainer.class, new GhostSlotHandler());
     }
 }

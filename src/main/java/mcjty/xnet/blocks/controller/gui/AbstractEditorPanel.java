@@ -308,6 +308,11 @@ public abstract class AbstractEditorPanel implements IEditorGui {
                 .setFilledRectThickness(-1).setFilledBackground(0xff888888);
         blockRender.setOnClick(button -> clickOnItemFilter(button, tag, blockRender));
         blockRender.setOnMouseWheel(amount -> wheelOnItemFilter(amount, tag, blockRender));
+        blockRender.setOnGhostClick(s ->
+        {
+            update(tag, s);
+            blockRender.setRenderItem(s);
+        });
 
         blockRender.setLayoutHint(new PositionalLayout.PositionalHint(x, y-1, 17, 17));
         data.put(tag, stack);

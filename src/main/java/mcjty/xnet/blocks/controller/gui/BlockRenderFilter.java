@@ -4,6 +4,7 @@ import mcjty.lib.gui.widgets.BlockRender;
 import mcjty.lib.gui.widgets.Widget;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.Gui;
+import net.minecraft.item.ItemStack;
 
 import java.util.function.Consumer;
 
@@ -12,6 +13,7 @@ public class BlockRenderFilter extends BlockRender
 {
     private Consumer<Integer> onMouseWheel = (i) -> {};
     private Consumer<Integer> onClick = (i) -> {};
+    private Consumer<ItemStack> onGhostClick = (s) -> {};
 
     public BlockRenderFilter(Minecraft mc, Gui gui)
     {
@@ -37,6 +39,16 @@ public class BlockRenderFilter extends BlockRender
     public void setOnClick(Consumer<Integer> onClick)
     {
         this.onClick = onClick;
+    }
+
+    public void setOnGhostClick(Consumer<ItemStack> onGhostClick)
+    {
+        this.onGhostClick = onGhostClick;
+    }
+
+    public Consumer<ItemStack> getOnGhostClick()
+    {
+        return onGhostClick;
     }
 
     @Override
