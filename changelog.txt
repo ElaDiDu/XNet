@@ -1,3 +1,6 @@
+1.8.17:
+- Fixed crashing when hovering over a JEI item with a GUI with no bounds open
+
 1.8.16:
 - Fixed JEI ghost filter bounding size
 
