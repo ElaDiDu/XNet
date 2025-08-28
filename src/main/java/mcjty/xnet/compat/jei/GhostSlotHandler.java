@@ -46,7 +46,7 @@ public class GhostSlotHandler implements IGhostIngredientHandler<GenericGuiConta
 
     private static void recursiveCollectGhostIngredientTargets(List<GhostIngredientTarget> blockRenderList, Point offset, Widget<?> widget)
     {
-        if (widget instanceof BlockRenderFilter blockRender)
+        if (widget instanceof BlockRenderFilter blockRender && blockRender.getBounds() != null)
         {
             Consumer<ItemStack> ghostIngredientHandler = blockRender.getOnGhostClick();
 
@@ -63,7 +63,9 @@ public class GhostSlotHandler implements IGhostIngredientHandler<GenericGuiConta
         for (Widget<?> child : container.getChildren())
         {
             Point containerOffset = new Point(offset);
-            containerOffset.translate(container.getBounds().x, container.getBounds().y);
+            if (container.getBounds() != null)
+                containerOffset.translate(container.getBounds().x, container.getBounds().y);
+
             recursiveCollectGhostIngredientTargets(blockRenderList, containerOffset, child);
         }
     }
