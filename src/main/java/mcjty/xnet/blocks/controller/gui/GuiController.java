@@ -48,6 +48,7 @@ import net.minecraft.util.text.TextFormatting;
 import org.lwjgl.input.Keyboard;
 import org.lwjgl.input.Mouse;
 
+import javax.annotation.Nonnull;
 import java.awt.*;
 import java.awt.datatransfer.Clipboard;
 import java.awt.datatransfer.DataFlavor;
@@ -733,22 +734,42 @@ public class GuiController extends GenericGuiContainer<TileEntityController> {
         super.drawStackTooltips(mouseX, mouseY);
     }
 
+    public void sendStackAsFilter(@Nonnull ItemStack stack)
+    {
+        sendServerCommand(XNetMessages.INSTANCE, TileEntityController.CMD_ADDTOFILTER,
+                TypedMap.builder()
+                        .put(PARAM_CHANNEL, getSelectedChannel())
+                        .put(PARAM_POS, editingConnector.getPos())
+                        .put(PARAM_SIDE, editingConnector.getSide().ordinal())
+                        .put(PARAM_STACK, stack)
+                        .build());
+        refresh();
+    }
+
     @Override
     protected void handleMouseClick(Slot slotIn, int slotId, int mouseButton, ClickType type)
     {
         if (slotIn != null && type == ClickType.QUICK_MOVE && editingConnector != null && slotIn.getHasStack())
         {
             ItemStack stack = slotIn.getStack();
-            sendServerCommand(XNetMessages.INSTANCE, TileEntityController.CMD_ADDTOFILTER,
-                    TypedMap.builder()
-                            .put(PARAM_CHANNEL, getSelectedChannel())
-                            .put(PARAM_POS, editingConnector.getPos())
-                            .put(PARAM_SIDE, editingConnector.getSide().ordinal())
-                            .put(PARAM_STACK, stack)
-                            .build());
-            refresh();
+            sendStackAsFilter(stack);
         }
         else
             super.handleMouseClick(slotIn, slotId, mouseButton, type);
+    }
+
+    public SidedPos getEditingConnector()
+    {
+        return editingConnector;
+    }
+
+    public Panel getConnectorEditPanel()
+    {
+        return connectorEditPanel;
+    }
+
+    public int getEditingChannel()
+    {
+        return editingChannel;
     }
 }
