@@ -547,12 +547,14 @@ public final class TileEntityController extends GenericEnergyReceiverTileEntity 
         ConsumerId consumerId = worldBlob.getConsumerAt(pos.getPos().offset(pos.getSide()));
         for (Map.Entry<SidedConsumer, ConnectorInfo> entry : channels[channel].getConnectors().entrySet()) {
             SidedConsumer key = entry.getKey();
+            ConnectorInfo connectorInfo = entry.getValue();
             if (key.getConsumerId().equals(consumerId) && key.getSide().getOpposite().equals(pos.getSide())) {
                 Map<String, Object> data = new HashMap<>();
                 for (Key<?> k : params.getKeys()) {
                     data.put(k.getName(), params.get(k));
                 }
-                channels[channel].getConnectors().get(key).getConnectorSettings().update(data);
+                connectorInfo.getConnectorSettings().update(data);
+                connectorInfo.getConnectorSettings().sanitizeSettings(connectorInfo.isAdvanced());
                 markAsDirty();
                 return;
             }
@@ -810,6 +812,7 @@ public final class TileEntityController extends GenericEnergyReceiverTileEntity 
 
             ConnectorInfo info = createConnector(channel, sidedPos);
             info.getConnectorSettings().readFromJson(connectorObject);
+            info.getConnectorSettings().sanitizeSettings(info.isAdvanced());
         } catch (JsonSyntaxException e) {
             XNetMessages.INSTANCE.sendTo(new PacketControllerError("Error pasting clipboard data!"), player);
         }
@@ -925,6 +928,7 @@ public final class TileEntityController extends GenericEnergyReceiverTileEntity 
                 System.out.println("Pasting " + info.getName() + " (" + block.toString() + " into " + info.getConnectedState().getBlock().getRegistryName().toString() + ") with score = " + pair.sortedMatches.get(0).getRight());
                 ConnectorInfo connectorInfo = createConnector(channel, info.getPos());
                 connectorInfo.getConnectorSettings().readFromJson(connectorSettings);
+                connectorInfo.getConnectorSettings().sanitizeSettings(connectorInfo.isAdvanced());
 
                 // Remove the connected block info we just used from all remaining connection proposals
                 for (PossibleConnection connection : connections) {

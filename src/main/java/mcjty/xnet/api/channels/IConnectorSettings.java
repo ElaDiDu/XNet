@@ -59,4 +59,10 @@ public interface IConnectorSettings {
      * side with a map for all gui components
      */
     void update(Map<String, Object> data);
+
+    /**
+     * Sanitizes the updated settings given by the client to prevent
+     * bypassing restrictions
+     */
+    default void sanitizeSettings(boolean advanced) {};
 }

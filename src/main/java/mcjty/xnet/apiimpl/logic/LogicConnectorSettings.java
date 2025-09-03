@@ -5,6 +5,8 @@ import com.google.gson.JsonArray;
 import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
 import com.google.gson.JsonPrimitive;
+import it.unimi.dsi.fastutil.ints.IntArrayList;
+import it.unimi.dsi.fastutil.ints.IntList;
 import mcjty.lib.varia.ItemStackTools;
 import mcjty.xnet.XNet;
 import mcjty.xnet.api.gui.IEditorGui;
@@ -37,6 +39,8 @@ public class LogicConnectorSettings extends AbstractConnectorSettings {
     }
 
     public static final int SENSORS = 4;
+    public static final IntList SPEEDS = new IntArrayList(new int[]{2, 4, 12, 20, 40});
+    public static final IntList ADVANCED_SPEEDS = new IntArrayList(new int[]{1, 2, 4, 12, 20, 40});
 
     private LogicMode logicMode = LogicMode.SENSOR;
     private List<Sensor> sensors = null;
@@ -162,6 +166,14 @@ public class LogicConnectorSettings extends AbstractConnectorSettings {
         } else {
             redstoneOut = (Integer) data.get(TAG_REDSTONE_OUT);
         }
+    }
+
+    @Override
+    public void sanitizeSettings(boolean advanced)
+    {
+        super.sanitizeSettings(advanced);
+        int minSpeed = advanced ? ADVANCED_SPEEDS.get(0) : SPEEDS.get(0);
+        speed = Math.max(speed, minSpeed);
     }
 
     @Override

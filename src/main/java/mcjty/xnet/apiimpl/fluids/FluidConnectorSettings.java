@@ -3,6 +3,8 @@ package mcjty.xnet.apiimpl.fluids;
 import com.google.common.collect.ImmutableSet;
 import com.google.gson.JsonObject;
 import com.google.gson.JsonPrimitive;
+import it.unimi.dsi.fastutil.ints.IntArrayList;
+import it.unimi.dsi.fastutil.ints.IntList;
 import mcjty.lib.varia.FluidTools;
 import mcjty.lib.varia.ItemStackList;
 import mcjty.lib.varia.ItemStackTools;
@@ -37,6 +39,8 @@ public class FluidConnectorSettings extends AbstractConnectorSettings {
     public static final String TAG_EXTRACT = "extract";
 
     public static final int FILTER_SIZE = 18;
+    public static final IntList SPEEDS = new IntArrayList(new int[]{2, 6, 10, 20});
+    public static final IntList ADVANCED_SPEEDS = new IntArrayList(new int[]{1, 2, 6, 10, 20});
 
     public enum FluidMode {
         INS,
@@ -228,6 +232,14 @@ public class FluidConnectorSettings extends AbstractConnectorSettings {
             filters.set(i, (ItemStack) data.get(TAG_FILTER + i));
         }
         matcher = null;
+    }
+
+    @Override
+    public void sanitizeSettings(boolean advanced)
+    {
+        super.sanitizeSettings(advanced);
+        int minSpeed = advanced ? ADVANCED_SPEEDS.get(0) : SPEEDS.get(0);
+        speed = Math.max(speed, minSpeed);
     }
 
     @Override
