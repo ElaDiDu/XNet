@@ -104,6 +104,12 @@ public abstract class AbstractConnectorSettings implements IConnectorSettings {
         facingOverride = facing == null ? null : EnumFacing.byName(facing);
     }
 
+    @Override
+    public void sanitizeSettings(boolean advanced)
+    {
+        facingOverride = advanced ? facingOverride : null;
+    }
+
     protected static <T extends Enum<T>> void setEnumSafe(JsonObject object, String tag, T value) {
         if (value != null) {
             object.add(tag, new JsonPrimitive(value.name()));

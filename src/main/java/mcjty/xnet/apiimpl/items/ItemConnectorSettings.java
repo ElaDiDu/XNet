@@ -3,6 +3,8 @@ package mcjty.xnet.apiimpl.items;
 import com.google.common.collect.ImmutableSet;
 import com.google.gson.JsonObject;
 import com.google.gson.JsonPrimitive;
+import it.unimi.dsi.fastutil.ints.IntArrayList;
+import it.unimi.dsi.fastutil.ints.IntList;
 import mcjty.lib.varia.ItemStackList;
 import mcjty.lib.varia.ItemStackTools;
 import mcjty.xnet.XNet;
@@ -42,6 +44,8 @@ public class ItemConnectorSettings extends AbstractConnectorSettings {
     public static final String TAG_SLOT = "slot";
 
     public static final int FILTER_SIZE = 18;
+    public static final IntList SPEEDS = new IntArrayList(new int[]{2, 4, 12, 20, 40});
+    public static final IntList ADVANCED_SPEEDS = new IntArrayList(new int[]{1, 2, 4, 12, 20, 40});
 
     public enum ItemMode {
         INS,
@@ -310,6 +314,15 @@ public class ItemConnectorSettings extends AbstractConnectorSettings {
             filters.set(i, (ItemStack) data.get(TAG_FILTER+i));
         }
         matcher = null;
+    }
+
+    @Override
+    public void sanitizeSettings(boolean advanced)
+    {
+        super.sanitizeSettings(advanced);
+        IntList speeds = advanced ? ADVANCED_SPEEDS : SPEEDS;
+        if (!speeds.contains(speed))
+            speed = 4;
     }
 
     @Override
