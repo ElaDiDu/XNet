@@ -42,10 +42,14 @@ public class ItemConnectorSettings extends AbstractConnectorSettings {
     public static final String TAG_BLACKLIST = "blacklist";
     public static final String TAG_COUNTMODE = "countmode";
     public static final String TAG_SLOT = "slot";
+    public static final String TAG_CUSTOM_SPEED = "customspeed";
 
     public static final int FILTER_SIZE = 18;
     public static final IntList SPEEDS = new IntArrayList(new int[]{2, 4, 12, 20, 40});
     public static final IntList ADVANCED_SPEEDS = new IntArrayList(new int[]{1, 2, 4, 12, 20, 40});
+    private static final int CUSTOM_SPEED = -1;
+    private static final int DEFAULT_SPEED = 4;
+    private static final String CUSTOM_SPEED_NAME = "Cstm";
 
     public enum ItemMode {
         INS,
@@ -80,6 +84,7 @@ public class ItemConnectorSettings extends AbstractConnectorSettings {
     @Nullable private Integer count = null;
     @Nullable private Integer extractAmount = null;
     @Nullable private Integer slot = null;
+    @Nullable private Integer customSpeed = null;
     private ItemStackList filters = ItemStackList.create(FILTER_SIZE);
 
     // Cached matcher for items
@@ -117,7 +122,7 @@ public class ItemConnectorSettings extends AbstractConnectorSettings {
         advanced = gui.isAdvanced();
         String[] speeds;
         if (advanced) {
-            speeds = new String[] { "5", "10", "20", "60", "100", "200" };
+            speeds = new String[] { "5", "10", "20", "60", "100", "200", CUSTOM_SPEED_NAME };
         } else {
             speeds = new String[] { "10", "20", "60", "100", "200" };
         }
@@ -127,7 +132,7 @@ public class ItemConnectorSettings extends AbstractConnectorSettings {
         redstoneGui(gui);
         gui.nl()
                 .choices(TAG_MODE, "Insert or extract mode", itemMode, ItemMode.values())
-                .shift(5)
+                .shift(1)
                 .choices(TAG_STACK, "Single item, stack, count max, highest, count exact (up to destination's space)", stackMode, StackMode.values());
 
         if ((stackMode == StackMode.COUNTM || stackMode == StackMode.COUNTE) && itemMode == ItemMode.EXT) {
@@ -136,19 +141,20 @@ public class ItemConnectorSettings extends AbstractConnectorSettings {
         }
 
         gui
-                .shift(5)
-                .choices(TAG_SPEED, "Number of ticks for each operation", Integer.toString(speed * 5), speeds)
-                .nl();
+                .shift(1)
+                .choices(TAG_SPEED, "Number of ticks for each operation", speed == CUSTOM_SPEED ? CUSTOM_SPEED_NAME : Integer.toString(speed * 5), speeds);
+
+        if (speed == CUSTOM_SPEED)
+            gui.integer(TAG_CUSTOM_SPEED, "Number of ticks for each operation", customSpeed, 30);
+        gui.nl();
 
         gui
                 .label("Pri").integer(TAG_PRIORITY, "Insertion priority", priority, 24)
-                //.shift(5)
                 .label("#")
                 .integer(TAG_COUNT, itemMode == ItemMode.EXT ? "Amount in destination inventory|to keep" : "Max amount in destination|inventory", count, 30);
 
         if (itemMode == ItemMode.EXT) {
             gui
-                    //.shift(5)
                     .choices(TAG_EXTRACT, "Extract mode (first available, random slot, round robin or slot)", extractMode, ExtractMode.values());
         }
         if (itemMode == ItemMode.INS || (itemMode == ItemMode.EXT && extractMode == ExtractMode.SLOT)) {
@@ -252,6 +258,21 @@ public class ItemConnectorSettings extends AbstractConnectorSettings {
         return speed;
     }
 
+    public int getTickSpeed()
+    {
+        if (speed == CUSTOM_SPEED)
+        {
+            if (customSpeed == null)
+                return DEFAULT_SPEED * 5;
+            else
+                return customSpeed;
+        }
+        else
+        {
+            return speed * 5;
+        }
+    }
+
     public boolean isBlacklist()
     {
         return blacklist;
@@ -268,7 +289,7 @@ public class ItemConnectorSettings extends AbstractConnectorSettings {
     }
 
     private static final Set<String> INSERT_TAGS = ImmutableSet.of(TAG_MODE, TAG_RS, TAG_COLOR+"0", TAG_COLOR+"1", TAG_COLOR+"2", TAG_COLOR+"3", TAG_COUNT, TAG_PRIORITY, TAG_OREDICT, TAG_META, TAG_NBT, TAG_BLACKLIST, TAG_COUNTMODE, TAG_SLOT);
-    private static final Set<String> EXTRACT_TAGS = ImmutableSet.of(TAG_MODE, TAG_RS, TAG_COLOR+"0", TAG_COLOR+"1", TAG_COLOR+"2", TAG_COLOR+"3", TAG_COUNT, TAG_OREDICT, TAG_META, TAG_NBT, TAG_BLACKLIST, TAG_STACK, TAG_SPEED, TAG_EXTRACT, TAG_EXTRACT_AMOUNT, TAG_SLOT);
+    private static final Set<String> EXTRACT_TAGS = ImmutableSet.of(TAG_MODE, TAG_RS, TAG_COLOR+"0", TAG_COLOR+"1", TAG_COLOR+"2", TAG_COLOR+"3", TAG_COUNT, TAG_OREDICT, TAG_META, TAG_NBT, TAG_BLACKLIST, TAG_STACK, TAG_SPEED, TAG_CUSTOM_SPEED, TAG_EXTRACT, TAG_EXTRACT_AMOUNT, TAG_SLOT);
 
     @Override
     public boolean isEnabled(String tag) {
@@ -296,9 +317,16 @@ public class ItemConnectorSettings extends AbstractConnectorSettings {
             extractMode = ExtractMode.valueOf(((String) emode).toUpperCase());
         }
         stackMode = StackMode.valueOf(((String)data.get(TAG_STACK)).toUpperCase());
-        speed = Integer.parseInt((String) data.get(TAG_SPEED)) / 5;
-        if (speed == 0) {
-            speed = 4;
+        String speedStr = (String) data.get(TAG_SPEED);
+        if (speedStr.equals(CUSTOM_SPEED_NAME))
+        {
+            speed = CUSTOM_SPEED;
+        }
+        else
+        {
+            speed = Integer.parseInt(speedStr) / 5;
+            if (speed == 0)
+                speed = DEFAULT_SPEED;
         }
         oredictMode = Boolean.TRUE.equals(data.get(TAG_OREDICT));
         metaMode = Boolean.TRUE.equals(data.get(TAG_META));
@@ -310,6 +338,7 @@ public class ItemConnectorSettings extends AbstractConnectorSettings {
         count = (Integer) data.get(TAG_COUNT);
         extractAmount = (Integer) data.get(TAG_EXTRACT_AMOUNT);
         slot = (Integer) data.get(TAG_SLOT);
+        customSpeed = (Integer) data.get(TAG_CUSTOM_SPEED);
         for (int i = 0 ; i < FILTER_SIZE ; i++) {
             filters.set(i, (ItemStack) data.get(TAG_FILTER+i));
         }
@@ -320,9 +349,24 @@ public class ItemConnectorSettings extends AbstractConnectorSettings {
     public void sanitizeSettings(boolean advanced)
     {
         super.sanitizeSettings(advanced);
-        IntList speeds = advanced ? ADVANCED_SPEEDS : SPEEDS;
-        if (!speeds.contains(speed))
-            speed = 4;
+
+        if (!advanced)
+        {
+            customSpeed = null;
+            if (speed == CUSTOM_SPEED)
+                speed = DEFAULT_SPEED;
+        }
+        if (speed == CUSTOM_SPEED)
+        {
+            if (customSpeed != null)
+                customSpeed = Math.max(1, customSpeed);
+        }
+        else
+        {
+            IntList speeds = advanced ? ADVANCED_SPEEDS : SPEEDS;
+            if (!speeds.contains(speed))
+                speed = DEFAULT_SPEED;
+        }
     }
 
     @Override
@@ -342,12 +386,13 @@ public class ItemConnectorSettings extends AbstractConnectorSettings {
         setIntegerSafe(object, "count", count);
         setIntegerSafe(object, "speed", speed);
         setIntegerSafe(object, "slot", slot);
+        setIntegerSafe(object, "customspeed", customSpeed);
         for (int i = 0 ; i < FILTER_SIZE ; i++) {
             if (!filters.get(i).isEmpty()) {
                 object.add("filter" + i, ItemStackTools.itemStackToJson(filters.get(i)));
             }
         }
-        if (speed == 1) {
+        if (speed == 1 || speed == CUSTOM_SPEED) {
             object.add("advancedneeded", new JsonPrimitive(true));
         }
 
@@ -370,10 +415,15 @@ public class ItemConnectorSettings extends AbstractConnectorSettings {
         count = getIntegerSafe(object, "count");
         speed = getIntegerNotNull(object, "speed");
         slot = getIntegerSafe(object, "slot");
-        for (int i = 0 ; i < FILTER_SIZE ; i++) {
-            if (object.has("filter" + i)) {
+        customSpeed = getIntegerSafe(object, "customspeed");
+        for (int i = 0 ; i < FILTER_SIZE ; i++)
+        {
+            if (object.has("filter" + i))
+            {
                 filters.set(i, ItemStackTools.jsonToItemStack(object.get("filter" + i).getAsJsonObject()));
-            } else {
+            }
+            else
+            {
                 filters.set(i, ItemStack.EMPTY);
             }
         }
@@ -385,10 +435,13 @@ public class ItemConnectorSettings extends AbstractConnectorSettings {
         itemMode = ItemMode.values()[tag.getByte("itemMode")];
         extractMode = ExtractMode.values()[tag.getByte("extractMode")];
         stackMode = StackMode.values()[tag.getByte("stackMode")];
-        if (tag.hasKey("spd")) {
+        if (tag.hasKey("spd"))
+        {
             // New tag
             speed = tag.getInteger("spd");
-        } else {
+        }
+        else
+        {
             // Old tag for compatibility
             speed = tag.getInteger("speed");
             if (speed == 0) {
@@ -401,29 +454,36 @@ public class ItemConnectorSettings extends AbstractConnectorSettings {
         nbtMode = tag.getBoolean("nbtMode");
         blacklist = tag.getBoolean("blacklist");
         countMode = tag.getBoolean("countMode");
-        if (tag.hasKey("priority")) {
+
+        if (tag.hasKey("priority"))
             priority = tag.getInteger("priority");
-        } else {
+        else
             priority = null;
-        }
-        if (tag.hasKey("extractAmount")) {
+
+        if (tag.hasKey("extractAmount"))
             extractAmount = tag.getInteger("extractAmount");
-        } else {
+        else
             extractAmount = null;
-        }
-        if (tag.hasKey("count")) {
+
+        if (tag.hasKey("count"))
             count = tag.getInteger("count");
-        } else {
+        else
             count = null;
-        }
-        if (tag.hasKey("slot")) {
+
+        if (tag.hasKey("slot"))
             slot = tag.getInteger("slot");
-        }
-        else {
+        else
             slot = null;
-        }
-        for (int i = 0 ; i < FILTER_SIZE ; i++) {
-            if (tag.hasKey("filter" + i)) {
+
+        if (tag.hasKey("customSpeed"))
+            customSpeed = tag.getInteger("customSpeed");
+        else
+            customSpeed = null;
+
+        for (int i = 0 ; i < FILTER_SIZE ; i++)
+        {
+            if (tag.hasKey("filter" + i))
+            {
                 NBTTagCompound itemTag = tag.getCompoundTag("filter" + i);
                 ItemStack stack = new ItemStack(itemTag);
                 int count = itemTag.getInteger("countInt");
@@ -432,7 +492,9 @@ public class ItemConnectorSettings extends AbstractConnectorSettings {
                     count = 1;
                 stack.setCount(count);
                 filters.set(i, stack);
-            } else {
+            }
+            else
+            {
                 filters.set(i, ItemStack.EMPTY);
             }
         }
@@ -451,19 +513,19 @@ public class ItemConnectorSettings extends AbstractConnectorSettings {
         tag.setBoolean("nbtMode", nbtMode);
         tag.setBoolean("blacklist", blacklist);
         tag.setBoolean("countMode", countMode);
-        if (priority != null) {
+        if (priority != null)
             tag.setInteger("priority", priority);
-        }
-        if (extractAmount != null) {
+        if (extractAmount != null)
             tag.setInteger("extractAmount", extractAmount);
-        }
-        if (count != null) {
+        if (count != null)
             tag.setInteger("count", count);
-        }
-        if (slot != null) {
+        if (slot != null)
             tag.setInteger("slot", slot);
-        }
-        for (int i = 0 ; i < FILTER_SIZE ; i++) {
+        if (customSpeed != null)
+            tag.setInteger("customSpeed", customSpeed);
+
+        for (int i = 0 ; i < FILTER_SIZE ; i++)
+        {
             if (!filters.get(i).isEmpty()) {
                 NBTTagCompound itemTag = new NBTTagCompound();
                 filters.get(i).writeToNBT(itemTag);

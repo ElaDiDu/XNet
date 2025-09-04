@@ -37,10 +37,14 @@ public class FluidConnectorSettings extends AbstractConnectorSettings {
     public static final String TAG_FILTER = "flt";
     public static final String TAG_SPEED = "speed";
     public static final String TAG_EXTRACT = "extract";
+    public static final String TAG_CUSTOM_SPEED = "customspeed";
 
     public static final int FILTER_SIZE = 18;
     public static final IntList SPEEDS = new IntArrayList(new int[]{2, 6, 10, 20});
     public static final IntList ADVANCED_SPEEDS = new IntArrayList(new int[]{1, 2, 6, 10, 20});
+    private static final int CUSTOM_SPEED = -1;
+    private static final int DEFAULT_SPEED = 2;
+    private static final String CUSTOM_SPEED_NAME = "Cstm";
 
     public enum FluidMode {
         INS,
@@ -58,6 +62,7 @@ public class FluidConnectorSettings extends AbstractConnectorSettings {
     @Nullable private Integer priority = 0;
     @Nullable private Integer rate = null;
     @Nullable private Integer minmax = null;
+    @Nullable private Integer customSpeed = null;
     private int speed = 2;
     private ExtractMode extractMode = ExtractMode.FIRST;
 
@@ -75,6 +80,21 @@ public class FluidConnectorSettings extends AbstractConnectorSettings {
 
     public int getSpeed() {
         return speed;
+    }
+
+    public int getTickSpeed()
+    {
+        if (speed == CUSTOM_SPEED)
+        {
+            if (customSpeed == null)
+                return DEFAULT_SPEED * 10;
+            else
+                return customSpeed;
+        }
+        else
+        {
+            return speed * 10;
+        }
     }
 
     @Nonnull
@@ -126,7 +146,7 @@ public class FluidConnectorSettings extends AbstractConnectorSettings {
         String[] speeds;
         int maxrate;
         if (advanced) {
-            speeds = new String[] { "10", "20", "60", "100", "200" };
+            speeds = new String[] { "10", "20", "60", "100", "200", CUSTOM_SPEED_NAME };
             maxrate = ConfigSetup.maxFluidRateAdvanced.get();
         } else {
             speeds = new String[] { "20", "60", "100", "200" };
@@ -138,8 +158,10 @@ public class FluidConnectorSettings extends AbstractConnectorSettings {
         redstoneGui(gui);
         gui.nl()
                 .choices(TAG_MODE, "Insert or extract mode", fluidMode, FluidMode.values())
-                .choices(TAG_SPEED, "Number of ticks for each operation", Integer.toString(speed * 10), speeds)
-                .nl()
+                .choices(TAG_SPEED, "Number of ticks for each operation", speed == CUSTOM_SPEED ? CUSTOM_SPEED_NAME : Integer.toString(speed * 10), speeds);
+        if (speed == CUSTOM_SPEED)
+            gui.integer(TAG_CUSTOM_SPEED, "Number of ticks for each operation", customSpeed, 30);
+        gui.nl()
 
                 .label("Pri").integer(TAG_PRIORITY, "Insertion priority", priority, 36)
                 .shift(5)
@@ -158,7 +180,7 @@ public class FluidConnectorSettings extends AbstractConnectorSettings {
     }
 
     private static Set<String> INSERT_TAGS = ImmutableSet.of(TAG_MODE, TAG_RS, TAG_COLOR+"0", TAG_COLOR+"1", TAG_COLOR+"2", TAG_COLOR+"3", TAG_RATE, TAG_MINMAX, TAG_PRIORITY);
-    private static Set<String> EXTRACT_TAGS = ImmutableSet.of(TAG_MODE, TAG_RS, TAG_COLOR+"0", TAG_COLOR+"1", TAG_COLOR+"2", TAG_COLOR+"3", TAG_RATE, TAG_MINMAX, TAG_PRIORITY, TAG_SPEED, TAG_EXTRACT);
+    private static Set<String> EXTRACT_TAGS = ImmutableSet.of(TAG_MODE, TAG_RS, TAG_COLOR+"0", TAG_COLOR+"1", TAG_COLOR+"2", TAG_COLOR+"3", TAG_RATE, TAG_MINMAX, TAG_PRIORITY, TAG_SPEED, TAG_CUSTOM_SPEED, TAG_EXTRACT);
 
     @Override
     public boolean isEnabled(String tag) {
@@ -222,9 +244,17 @@ public class FluidConnectorSettings extends AbstractConnectorSettings {
         rate = (Integer) data.get(TAG_RATE);
         minmax = (Integer) data.get(TAG_MINMAX);
         priority = (Integer) data.get(TAG_PRIORITY);
-        speed = Integer.parseInt((String) data.get(TAG_SPEED)) / 10;
-        if (speed == 0) {
-            speed = 2;
+        customSpeed = (Integer) data.get(TAG_CUSTOM_SPEED);
+        String speedStr = (String) data.get(TAG_SPEED);
+        if (speedStr.equals(CUSTOM_SPEED_NAME))
+        {
+            speed = CUSTOM_SPEED;
+        }
+        else
+        {
+            speed = Integer.parseInt(speedStr) / 10;
+            if (speed == 0)
+                speed = DEFAULT_SPEED;
         }
         extractMode = ExtractMode.valueOf(((String)data.get(TAG_EXTRACT)).toUpperCase());
         for (int i = 0; i < FILTER_SIZE; i++)
@@ -238,9 +268,24 @@ public class FluidConnectorSettings extends AbstractConnectorSettings {
     public void sanitizeSettings(boolean advanced)
     {
         super.sanitizeSettings(advanced);
-        IntList speeds = advanced ? ADVANCED_SPEEDS : SPEEDS;
-        if (!speeds.contains(speed))
-            speed = 2;
+
+        if (!advanced)
+        {
+            customSpeed = null;
+            if (speed == CUSTOM_SPEED)
+                speed = DEFAULT_SPEED;
+        }
+        if (speed == CUSTOM_SPEED)
+        {
+            if (customSpeed != null)
+                customSpeed = Math.max(1, customSpeed);
+        }
+        else
+        {
+            IntList speeds = advanced ? ADVANCED_SPEEDS : SPEEDS;
+            if (!speeds.contains(speed))
+                speed = DEFAULT_SPEED;
+        }
     }
 
     @Override
@@ -251,6 +296,7 @@ public class FluidConnectorSettings extends AbstractConnectorSettings {
         setIntegerSafe(object, "priority", priority);
         setIntegerSafe(object, "rate", rate);
         setIntegerSafe(object, "minmax", minmax);
+        setIntegerSafe(object, "customspeed", customSpeed);
         setIntegerSafe(object, "speed", speed);
         for (int i = 0; i < FILTER_SIZE; i++)
         {
@@ -262,7 +308,7 @@ public class FluidConnectorSettings extends AbstractConnectorSettings {
         if (rate != null && rate > ConfigSetup.maxFluidRateNormal.get()) {
             object.add("advancedneeded", new JsonPrimitive(true));
         }
-        if (speed == 1) {
+        if (speed == 1 || speed == CUSTOM_SPEED) {
             object.add("advancedneeded", new JsonPrimitive(true));
         }
         setEnumSafe(object, "extractmode", extractMode);
@@ -276,6 +322,7 @@ public class FluidConnectorSettings extends AbstractConnectorSettings {
         priority = getIntegerSafe(object, "priority");
         rate = getIntegerSafe(object, "rate");
         minmax = getIntegerSafe(object, "minmax");
+        customSpeed = getIntegerSafe(object, "customspeed");
         speed = getIntegerNotNull(object, "speed");
         for (int i = 0 ; i < FILTER_SIZE ; i++)
         {
@@ -297,27 +344,27 @@ public class FluidConnectorSettings extends AbstractConnectorSettings {
     {
         super.readFromNBT(tag);
         fluidMode = FluidMode.values()[tag.getByte("fluidMode")];
+
         if (tag.hasKey("priority"))
-        {
             priority = tag.getInteger("priority");
-        } else
-        {
+        else
             priority = null;
-        }
+
         if (tag.hasKey("rate"))
-        {
             rate = tag.getInteger("rate");
-        } else
-        {
+        else
             rate = null;
-        }
+
         if (tag.hasKey("minmax"))
-        {
             minmax = tag.getInteger("minmax");
-        } else
-        {
+        else
             minmax = null;
-        }
+
+        if (tag.hasKey("customSpeed"))
+            customSpeed = tag.getInteger("customSpeed");
+        else
+            customSpeed = null;
+
         speed = tag.getInteger("speed");
         if (speed == 0)
         {
@@ -347,13 +394,9 @@ public class FluidConnectorSettings extends AbstractConnectorSettings {
                 }
             }
             if (tag.hasKey("extractMode"))
-            {
                 extractMode = ExtractMode.values()[tag.getByte("extractMode")];
-            }
             else
-            {
                 extractMode = ExtractMode.FIRST;
-            }
         }
     }
 
@@ -361,15 +404,15 @@ public class FluidConnectorSettings extends AbstractConnectorSettings {
     public void writeToNBT(NBTTagCompound tag) {
         super.writeToNBT(tag);
         tag.setByte("fluidMode", (byte) fluidMode.ordinal());
-        if (priority != null) {
+        if (priority != null)
             tag.setInteger("priority", priority);
-        }
-        if (rate != null) {
+        if (rate != null)
             tag.setInteger("rate", rate);
-        }
-        if (minmax != null) {
+        if (minmax != null)
             tag.setInteger("minmax", minmax);
-        }
+        if (customSpeed != null)
+            tag.setInteger("customSpeed", customSpeed);
+
         tag.setInteger("speed", speed);
         for (int i = 0 ; i < FILTER_SIZE ; i++) {
             if (!filters.get(i).isEmpty()) {

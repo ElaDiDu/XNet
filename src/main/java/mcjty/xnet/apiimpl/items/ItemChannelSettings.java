@@ -45,7 +45,7 @@ public class ItemChannelSettings extends DefaultChannelSettings implements IChan
     public static final String TAG_MODE = "mode";
 
     // Cache data
-    private Map<SidedConsumer, ItemConnectorSettings> itemExtractors = null;
+    private List<Pair<SidedConsumer, ItemConnectorSettings>> itemExtractors = null;
     private List<Pair<SidedConsumer, ItemConnectorSettings>> itemConsumers = null;
 
 
@@ -55,7 +55,7 @@ public class ItemChannelSettings extends DefaultChannelSettings implements IChan
     }
 
     private ChannelMode channelMode = ChannelMode.PRIORITY;
-    private int delay = 0;
+    private long ticksExisted = 0;
     private int roundRobinOffset = 0;
     private Map<ConsumerId, Integer> currentIndices = new HashMap<>();
 
@@ -84,7 +84,12 @@ public class ItemChannelSettings extends DefaultChannelSettings implements IChan
     @Override
     public void readFromNBT(NBTTagCompound tag) {
         channelMode = ChannelMode.values()[tag.getByte("mode")];
-        delay = tag.getInteger("delay");
+        // Old version compat
+        if (tag.hasKey("delay"))
+            ticksExisted = 200*6 - tag.getInteger("delay");
+        else
+            ticksExisted = tag.getLong("ticksExisted");
+
         roundRobinOffset = tag.getInteger("offset");
         int[] cons = tag.getIntArray("extidx");
         for (int idx = 0 ; idx < cons.length ; idx += 2) {
@@ -95,7 +100,7 @@ public class ItemChannelSettings extends DefaultChannelSettings implements IChan
     @Override
     public void writeToNBT(NBTTagCompound tag) {
         tag.setByte("mode", (byte) channelMode.ordinal());
-        tag.setInteger("delay", delay);
+        tag.setLong("ticksExisted", ticksExisted);
         tag.setInteger("offset", roundRobinOffset);
 
         if (!currentIndices.isEmpty()) {
@@ -121,22 +126,18 @@ public class ItemChannelSettings extends DefaultChannelSettings implements IChan
 
     @Override
     public void tick(int channel, IControllerContext context) {
-        delay--;
-        if (delay <= 0) {
-            delay = 200*6;      // Multiply of the different speeds we have
-        }
-        if (delay % 5 != 0) {
-            return;
-        }
-        int d = delay/5;
-
         updateCache(channel, context);
+        doExtracts(context);
+        ticksExisted++;
+    }
+
+    private void doExtracts(IControllerContext context)
+    {
         World world = context.getControllerWorld();
-        for (Map.Entry<SidedConsumer, ItemConnectorSettings> entry : itemExtractors.entrySet()) {
+        for (Pair<SidedConsumer, ItemConnectorSettings> entry : itemExtractors) {
             ItemConnectorSettings settings = entry.getValue();
-            if (d % settings.getSpeed() != 0) {
+            if (ticksExisted % settings.getTickSpeed() != 0)
                 continue;
-            }
 
             ConsumerId consumerId = entry.getKey().getConsumerId();
             BlockPos extractorPos = context.findConsumerPosition(consumerId);
@@ -298,8 +299,8 @@ public class ItemChannelSettings extends DefaultChannelSettings implements IChan
      * @return true if something was transferred
      */
     public boolean transferStack(@Nonnull IItemHandler from, @Nonnull ItemStack stack,
-                              ItemConnectorSettings extractSettings, int extractIdx,
-                              @Nonnull IControllerContext context)
+                                 ItemConnectorSettings extractSettings, int extractIdx,
+                                 @Nonnull IControllerContext context)
     {
         World world = context.getControllerWorld();
         if (channelMode == ChannelMode.PRIORITY)
@@ -691,13 +692,13 @@ public class ItemChannelSettings extends DefaultChannelSettings implements IChan
 
     private void updateCache(int channel, IControllerContext context) {
         if (itemExtractors == null) {
-            itemExtractors = new HashMap<>();
+            itemExtractors = new ArrayList<>();
             itemConsumers = new ArrayList<>();
             Map<SidedConsumer, IConnectorSettings> connectors = context.getConnectors(channel);
             for (Map.Entry<SidedConsumer, IConnectorSettings> entry : connectors.entrySet()) {
                 ItemConnectorSettings con = (ItemConnectorSettings) entry.getValue();
                 if (con.getItemMode() == ItemConnectorSettings.ItemMode.EXT) {
-                    itemExtractors.put(entry.getKey(), con);
+                    itemExtractors.add(Pair.of(entry.getKey(), con));
                 } else {
                     itemConsumers.add(Pair.of(entry.getKey(), con));
                 }
@@ -766,6 +767,4 @@ public class ItemChannelSettings extends DefaultChannelSettings implements IChan
         }
         return null;
     }
-
-
 }

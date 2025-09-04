@@ -29,7 +29,7 @@ public class LogicChannelSettings extends DefaultChannelSettings implements ICha
 
     public static final ResourceLocation iconGuiElements = new ResourceLocation(XNet.MODID, "textures/gui/guielements.png");
 
-    private int delay = 0;
+    private long ticksExisted = 0;
     private int colors = 0;     // Colors for this channel
     private List<Pair<SidedConsumer, LogicConnectorSettings>> sensors = null;
     private List<Pair<SidedConsumer, LogicConnectorSettings>> outputs = null;
@@ -47,13 +47,17 @@ public class LogicChannelSettings extends DefaultChannelSettings implements ICha
 
     @Override
     public void readFromNBT(NBTTagCompound tag) {
-        delay = tag.getInteger("delay");
+        // Old version compat
+        if (tag.hasKey("delay"))
+            ticksExisted = 200*6 - tag.getInteger("delay");
+        else
+            ticksExisted = tag.getLong("ticksExisted");
         colors = tag.getInteger("colors");
     }
 
     @Override
     public void writeToNBT(NBTTagCompound tag) {
-        tag.setInteger("delay", delay);
+        tag.setLong("ticksExisted", ticksExisted);
         tag.setInteger("colors", colors);
     }
 
@@ -64,21 +68,13 @@ public class LogicChannelSettings extends DefaultChannelSettings implements ICha
 
     @Override
     public void tick(int channel, IControllerContext context) {
-        delay--;
-        if (delay <= 0) {
-            delay = 200 * 6;      // Multiply of the different speeds we have
-        }
-        if (delay % 5 != 0) {
-            return;
-        }
-        int d = delay / 5;
         updateCache(channel, context);
         World world = context.getControllerWorld();
 
         colors = 0;
         for (Pair<SidedConsumer, LogicConnectorSettings> entry : sensors) {
             LogicConnectorSettings settings = entry.getValue();
-            if (d % settings.getSpeed() != 0) {
+            if (ticksExisted % settings.getTickSpeed() != 0) {
                 // Use the color settings from this connector as we last remembered it
                 colors |= settings.getColorMask();
                 continue;
@@ -118,7 +114,7 @@ public class LogicChannelSettings extends DefaultChannelSettings implements ICha
 
         for (Pair<SidedConsumer, LogicConnectorSettings> entry : outputs) {
             LogicConnectorSettings settings = entry.getValue();
-            if (d % settings.getSpeed() != 0) {
+            if (ticksExisted % settings.getTickSpeed() != 0) {
                 continue;
             }
 
@@ -144,6 +140,7 @@ public class LogicChannelSettings extends DefaultChannelSettings implements ICha
                 }
             }
         }
+        ticksExisted++;
     }
 
     private void updateCache(int channel, IControllerContext context) {

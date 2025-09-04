@@ -48,11 +48,11 @@ public class FluidChannelSettings extends DefaultChannelSettings implements ICha
     }
 
     private ChannelMode channelMode = ChannelMode.PRIORITY;
-    private int delay = 0;
+    private long ticksExisted = 0;
     private int roundRobinOffset = 0;
 
     // Cache data
-    private Map<SidedConsumer, FluidConnectorSettings> fluidExtractors = null;
+    private List<Pair<SidedConsumer, FluidConnectorSettings>> fluidExtractors = null;
     private List<Pair<SidedConsumer, FluidConnectorSettings>> fluidConsumers = null;
     private Map<ConsumerId, Integer> extractIndices = new HashMap<>();
 
@@ -80,7 +80,12 @@ public class FluidChannelSettings extends DefaultChannelSettings implements ICha
     public void readFromNBT(NBTTagCompound tag)
     {
         channelMode = ChannelMode.values()[tag.getByte("mode")];
-        delay = tag.getInteger("delay");
+        // Old version compat
+        if (tag.hasKey("delay"))
+            ticksExisted = 200*6 - tag.getInteger("delay");
+        else
+            ticksExisted = tag.getLong("ticksExisted");
+
         roundRobinOffset = tag.getInteger("offset");
         int[] cons = tag.getIntArray("extidx");
         for (int idx = 0 ; idx < cons.length ; idx += 2) {
@@ -92,7 +97,7 @@ public class FluidChannelSettings extends DefaultChannelSettings implements ICha
     public void writeToNBT(NBTTagCompound tag)
     {
         tag.setByte("mode", (byte) channelMode.ordinal());
-        tag.setInteger("delay", delay);
+        tag.setLong("ticksExisted", ticksExisted);
         tag.setInteger("offset", roundRobinOffset);
 
         if (!extractIndices.isEmpty()) {
@@ -109,27 +114,19 @@ public class FluidChannelSettings extends DefaultChannelSettings implements ICha
     @Override
     public void tick(int channel, IControllerContext context)
     {
-        delay--;
-        if (delay <= 0)
-        {
-            delay = 200 * 6;      // Multiply of the different speeds we have
-        }
-        if (delay % 10 != 0)
-        {
-            return;
-        }
-        int d = delay / 10;
-
         updateCache(channel, context);
-        // @todo optimize
+        doExtracts(context);
+        ticksExisted++;
+    }
+
+    private void doExtracts(IControllerContext context)
+    {
         World world = context.getControllerWorld();
-        for (Map.Entry<SidedConsumer, FluidConnectorSettings> entry : fluidExtractors.entrySet())
+        for (Pair<SidedConsumer, FluidConnectorSettings> entry : fluidExtractors)
         {
             FluidConnectorSettings settings = entry.getValue();
-            if (d % settings.getSpeed() != 0)
-            {
+            if (ticksExisted % settings.getTickSpeed() != 0)
                 continue;
-            }
 
             ConsumerId consumerId = entry.getKey().getConsumerId();
             BlockPos extractorPos = context.findConsumerPosition(consumerId);
@@ -548,13 +545,13 @@ public class FluidChannelSettings extends DefaultChannelSettings implements ICha
 
     private void updateCache(int channel, IControllerContext context) {
         if (fluidExtractors == null) {
-            fluidExtractors = new HashMap<>();
+            fluidExtractors = new ArrayList<>();
             fluidConsumers = new ArrayList<>();
             Map<SidedConsumer, IConnectorSettings> connectors = context.getConnectors(channel);
             for (Map.Entry<SidedConsumer, IConnectorSettings> entry : connectors.entrySet()) {
                 FluidConnectorSettings con = (FluidConnectorSettings) entry.getValue();
                 if (con.getFluidMode() == FluidConnectorSettings.FluidMode.EXT) {
-                    fluidExtractors.put(entry.getKey(), con);
+                    fluidExtractors.add(Pair.of(entry.getKey(), con));
                 } else {
                     fluidConsumers.add(Pair.of(entry.getKey(), con));
                 }

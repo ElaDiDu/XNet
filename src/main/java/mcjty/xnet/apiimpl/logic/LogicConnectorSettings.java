@@ -32,6 +32,7 @@ public class LogicConnectorSettings extends AbstractConnectorSettings {
     public static final String TAG_MODE = "mode";
     public static final String TAG_SPEED = "speed";
     public static final String TAG_REDSTONE_OUT = "rsout";
+    public static final String TAG_CUSTOM_SPEED = "customspeed";
 
     public enum LogicMode {
         SENSOR,
@@ -41,6 +42,9 @@ public class LogicConnectorSettings extends AbstractConnectorSettings {
     public static final int SENSORS = 4;
     public static final IntList SPEEDS = new IntArrayList(new int[]{2, 4, 12, 20, 40});
     public static final IntList ADVANCED_SPEEDS = new IntArrayList(new int[]{1, 2, 4, 12, 20, 40});
+    private static final int CUSTOM_SPEED = -1;
+    private static final int DEFAULT_SPEED = 2;
+    private static final String CUSTOM_SPEED_NAME = "Cstm";
 
     private LogicMode logicMode = LogicMode.SENSOR;
     private List<Sensor> sensors = null;
@@ -48,6 +52,7 @@ public class LogicConnectorSettings extends AbstractConnectorSettings {
     private int colors;         // Current colormask
     private int speed = 2;
     private Integer redstoneOut;    // Redstone output value
+    @Nullable private Integer customSpeed = null;
 
     public LogicConnectorSettings(@Nonnull EnumFacing side) {
         super(side);
@@ -93,7 +98,7 @@ public class LogicConnectorSettings extends AbstractConnectorSettings {
         return null;
     }
 
-    private static Set<String> TAGS = ImmutableSet.of(TAG_REDSTONE_OUT, TAG_MODE, TAG_RS, TAG_COLOR+"0", TAG_COLOR+"1", TAG_COLOR+"2", TAG_COLOR+"3");
+    private static Set<String> TAGS = ImmutableSet.of(TAG_REDSTONE_OUT, TAG_MODE, TAG_RS, TAG_COLOR+"0", TAG_COLOR+"1", TAG_COLOR+"2", TAG_COLOR+"3", TAG_CUSTOM_SPEED);
 
     @Override
     public boolean isEnabled(String tag) {
@@ -116,6 +121,21 @@ public class LogicConnectorSettings extends AbstractConnectorSettings {
         return speed;
     }
 
+    public int getTickSpeed()
+    {
+        if (speed == CUSTOM_SPEED)
+        {
+            if (customSpeed == null)
+                return DEFAULT_SPEED * 5;
+            else
+                return customSpeed;
+        }
+        else
+        {
+            return speed * 5;
+        }
+    }
+
     public LogicMode getLogicMode() {
         return logicMode;
     }
@@ -126,7 +146,7 @@ public class LogicConnectorSettings extends AbstractConnectorSettings {
         advanced = gui.isAdvanced();
         String[] speeds;
         if (advanced) {
-            speeds = new String[] { "5", "10", "20", "60", "100", "200" };
+            speeds = new String[] { "5", "10", "20", "60", "100", "200", CUSTOM_SPEED_NAME };
         } else {
             speeds = new String[] { "10", "20", "60", "100", "200" };
         }
@@ -135,8 +155,13 @@ public class LogicConnectorSettings extends AbstractConnectorSettings {
         redstoneGui(gui);
         gui.nl()
                 .choices(TAG_MODE, "Sensor or Output mode", logicMode, LogicMode.values())
-                .choices(TAG_SPEED, (logicMode == LogicMode.SENSOR ? "Number of ticks for each check" : "Number of ticks for each operation"), Integer.toString(speed * 5), speeds)
-                .nl();
+                .choices(TAG_SPEED, (logicMode == LogicMode.SENSOR ? "Number of ticks for each check" : "Number of ticks for each operation"),
+                        speed == CUSTOM_SPEED ? CUSTOM_SPEED_NAME : Integer.toString(speed * 5), speeds);
+
+        if (speed == CUSTOM_SPEED)
+            gui.integer(TAG_CUSTOM_SPEED, (logicMode == LogicMode.SENSOR ? "Number of ticks for each check" : "Number of ticks for each operation"), customSpeed, 30);
+        gui.nl();
+
         if (logicMode == LogicMode.SENSOR) {
             for (Sensor sensor : sensors) {
                 sensor.createGui(gui);
@@ -155,10 +180,18 @@ public class LogicConnectorSettings extends AbstractConnectorSettings {
         String facing = (String) data.get(TAG_FACING);
         // @todo suspicious
 
-        speed = Integer.parseInt((String) data.get(TAG_SPEED)) / 5;
-        if (speed == 0) {
-            speed = 2;
+        String speedStr = (String) data.get(TAG_SPEED);
+        if (speedStr.equals(CUSTOM_SPEED_NAME))
+        {
+            speed = CUSTOM_SPEED;
         }
+        else
+        {
+            speed = Integer.parseInt(speedStr) / 5;
+            if (speed == 0)
+                speed = DEFAULT_SPEED;
+        }
+        customSpeed = (Integer) data.get(TAG_CUSTOM_SPEED);
         if (logicMode == LogicMode.SENSOR) {
             for (Sensor sensor : sensors) {
                 sensor.update(data);
@@ -172,9 +205,24 @@ public class LogicConnectorSettings extends AbstractConnectorSettings {
     public void sanitizeSettings(boolean advanced)
     {
         super.sanitizeSettings(advanced);
-        IntList speeds = advanced ? ADVANCED_SPEEDS : SPEEDS;
-        if (!speeds.contains(speed))
-            speed = 4;
+
+        if (!advanced)
+        {
+            customSpeed = null;
+            if (speed == CUSTOM_SPEED)
+                speed = DEFAULT_SPEED;
+        }
+        if (speed == CUSTOM_SPEED)
+        {
+            if (customSpeed != null)
+                customSpeed = Math.max(1, customSpeed);
+        }
+        else
+        {
+            IntList speeds = advanced ? ADVANCED_SPEEDS : SPEEDS;
+            if (!speeds.contains(speed))
+                speed = DEFAULT_SPEED;
+        }
     }
 
     @Override
@@ -183,6 +231,7 @@ public class LogicConnectorSettings extends AbstractConnectorSettings {
         super.writeToJsonInternal(object);
         setEnumSafe(object, "logicmode", logicMode);
         setIntegerSafe(object, "speed", speed);
+        setIntegerSafe(object, "customspeed", customSpeed);
         JsonArray sensorArray = new JsonArray();
         for (Sensor sensor : sensors) {
             JsonObject o = new JsonObject();
@@ -196,7 +245,7 @@ public class LogicConnectorSettings extends AbstractConnectorSettings {
             sensorArray.add(o);
         }
         object.add("sensors", sensorArray);
-        if (speed == 1) {
+        if (speed == 1 || speed == CUSTOM_SPEED) {
             object.add("advancedneeded", new JsonPrimitive(true));
         }
         return object;
@@ -207,6 +256,7 @@ public class LogicConnectorSettings extends AbstractConnectorSettings {
         super.readFromJsonInternal(object);
         logicMode = getEnumSafe(object, "logicmode", EnumStringTranslators::getLogicMode);
         speed = getIntegerNotNull(object, "speed");
+        customSpeed = getIntegerSafe(object, "customspeed");
         JsonArray sensorArray = object.get("sensors").getAsJsonArray();
         sensors.clear();
         for (JsonElement oe : sensorArray) {
@@ -230,14 +280,17 @@ public class LogicConnectorSettings extends AbstractConnectorSettings {
         super.readFromNBT(tag);
         logicMode = LogicMode.values()[tag.getByte("logicMode")];
         speed = tag.getInteger("speed");
-        if (speed == 0) {
+        if (speed == 0)
             speed = 2;
-        }
         colors = tag.getInteger("colors");
         for (Sensor sensor : sensors) {
             sensor.readFromNBT(tag);
         }
         redstoneOut = tag.getInteger("rsout");
+        if (tag.hasKey("customSpeed"))
+            customSpeed = tag.getInteger("customSpeed");
+        else
+            customSpeed = null;
     }
 
     @Override
@@ -249,9 +302,10 @@ public class LogicConnectorSettings extends AbstractConnectorSettings {
         for (Sensor sensor : sensors) {
             sensor.writeToNBT(tag);
         }
-        if (redstoneOut != null) {
+        if (redstoneOut != null)
             tag.setInteger("rsout", redstoneOut);
-        }
+        if (customSpeed != null)
+            tag.setInteger("customSpeed", customSpeed);
     }
 
 }
