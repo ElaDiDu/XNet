@@ -5,10 +5,10 @@ import java.util.*
 plugins {
     id("java-library")
     id("maven-publish")
-    id("org.jetbrains.gradle.plugin.idea-ext") version "1.1.7"
+    id("org.jetbrains.gradle.plugin.idea-ext") version "1.3"
     id("eclipse")
     id("groovy")
-    id("com.gtnewhorizons.retrofuturagradle") version "1.3.19"
+    id("com.gtnewhorizons.retrofuturagradle") version "2.0.2"
 }
 
 // Project properties
@@ -150,8 +150,7 @@ repositories {
     }
     maven {
         name = "GTNH Maven"
-        url = uri("http://jenkins.usrv.eu:8081/nexus/content/groups/public/")
-        isAllowInsecureProtocol = true
+        url = uri("https://nexus.gtnewhorizons.com/repository/public/")
     }
     mavenCentral()
 }
@@ -167,7 +166,6 @@ dependencies {
     testAnnotationProcessor("com.github.bsideup.jabel:jabel-javac-plugin:1.0.0")
     testImplementation ("org.codehaus.groovy:groovy-all:3.0.9")  // Latest Groovy version
 
-
     testRuntimeOnly("org.junit.jupiter:junit-jupiter-engine:5.10.0")
 
     testCompileOnly("com.github.bsideup.jabel:jabel-javac-plugin:1.0.0") {
@@ -175,7 +173,6 @@ dependencies {
     }
     testCompileOnly("me.eigenraven.java8unsupported:java-8-unsupported-shim:1.0.0")
     // Mixins
-
 
     annotationProcessor("org.ow2.asm:asm-debug-all:5.2")
     annotationProcessor("com.google.guava:guava:30.0-jre")
@@ -186,6 +183,8 @@ dependencies {
     implementation(rfg.deobf("curse.maven:redstoneflux-270789:2920436"))
     implementation(rfg.deobf("curse.maven:tesla-244651:2487959"))
     implementation("curse.maven:had-enough-items-557549:4810661")
+    // For ctm compat integration. (if ever)
+    //implementation(rfg.deobf("curse.maven:ctm-267602:2915363"))
     implementation(rfg.deobf("curse.maven:the-one-probe-245211:2667280"))
     implementation(rfg.deobf("curse.maven:rftools-224641:2861573"))
     implementation(rfg.deobf("curse.maven:rftools-dep-mcjtylib-233105:2745846"))
