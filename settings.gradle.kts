@@ -1,16 +1,13 @@
 pluginManagement {
     repositories {
         maven {
-            // RetroFuturaGradle
             name = "GTNH Maven"
-            url = uri("http://jenkins.usrv.eu:8081/nexus/content/groups/public/")
-            isAllowInsecureProtocol = true
+            url = uri("https://nexus.gtnewhorizons.com/repository/public/")
             mavenContent {
                 includeGroup("com.gtnewhorizons")
                 includeGroup("com.gtnewhorizons.retrofuturagradle")
             }
         }
-        maven("https://plugins.gradle.org/m2/")
         gradlePluginPortal()
         mavenCentral()
         mavenLocal()
@@ -18,8 +15,7 @@ pluginManagement {
 }
 
 plugins {
-    // Automatic toolchain provisioning
-    id("org.gradle.toolchains.foojay-resolver-convention") version "0.4.0"
+    id("org.gradle.toolchains.foojay-resolver-convention") version "1.0.0"
 }
 
 rootProject.name = "XNet"
