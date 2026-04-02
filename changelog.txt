@@ -1,3 +1,8 @@
+1.8.18:
+- Fixed Redstone Output Value not getting copy pasted
+- Fixed copied connectors with color conditions behaving wrong until updated
+- Facades now correctly block light
+
 1.8.17:
 - Fixed crashing when hovering over a JEI item with a GUI with no bounds open
 
