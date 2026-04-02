@@ -26,7 +26,10 @@ import mcjty.xnet.multiblock.XNetBlobData;
 import net.minecraft.block.Block;
 import net.minecraft.block.ITileEntityProvider;
 import net.minecraft.block.material.Material;
+import net.minecraft.block.properties.PropertyBool;
+import net.minecraft.block.properties.IProperty;
 import net.minecraft.block.state.IBlockState;
+import net.minecraft.block.state.BlockStateContainer;
 import net.minecraft.client.renderer.block.model.ModelResourceLocation;
 import net.minecraft.client.renderer.block.statemap.StateMapperBase;
 import net.minecraft.client.util.ITooltipFlag;
@@ -47,7 +50,9 @@ import net.minecraft.util.text.TextFormatting;
 import net.minecraft.world.IBlockAccess;
 import net.minecraft.world.World;
 import net.minecraftforge.client.model.ModelLoader;
+import net.minecraftforge.common.property.ExtendedBlockState;
 import net.minecraftforge.common.property.IExtendedBlockState;
+import net.minecraftforge.common.property.IUnlistedProperty;
 import net.minecraftforge.fluids.capability.CapabilityFluidHandler;
 import net.minecraftforge.fml.common.registry.GameRegistry;
 import net.minecraftforge.fml.common.Optional;
@@ -61,7 +66,7 @@ import javax.annotation.Nullable;
 import java.util.List;
 
 public class ConnectorBlock extends GenericCableBlock implements ITileEntityProvider {
-
+    public static final PropertyBool FACADE = PropertyBool.create("facade");
     public static final String CONNECTOR = "connector";
 
     public ConnectorBlock() {
@@ -71,6 +76,7 @@ public class ConnectorBlock extends GenericCableBlock implements ITileEntityProv
     public ConnectorBlock(String name) {
         super(Material.IRON, name);
         initTileEntity();
+        setDefaultState(getDefaultState().withProperty(FACADE, false));
     }
 
     protected void initTileEntity() {
@@ -85,8 +91,44 @@ public class ConnectorBlock extends GenericCableBlock implements ITileEntityProv
             }
         }
     }
+    @Override
+    @SuppressWarnings("deprecation")
+    public int getLightOpacity(IBlockState state, IBlockAccess world, BlockPos pos) {
+        if (!state.getValue(FACADE)) {
+            return 0;
+        }
 
+        IBlockState mimicBlock = getMimicBlock(world, pos);
+        if (mimicBlock != null) {
+            return mimicBlock.getLightOpacity(world, pos);
+        }
 
+        return 255;
+    }
+    @Override
+    protected BlockStateContainer createBlockState() {
+        IProperty<?>[] listedProperties = new IProperty<?>[] { COLOR, FACADE };
+        IUnlistedProperty<?>[] unlistedProperties = new IUnlistedProperty<?>[] {
+                NORTH, SOUTH, WEST, EAST, UP, DOWN, FACADEID
+        };
+        return new ExtendedBlockState(this, listedProperties, unlistedProperties);
+    }
+
+    @Override
+    public IBlockState getStateFromMeta(int meta) {
+        CableColor color = CableColor.VALUES[meta & 0x7];
+        boolean facade = (meta & 0x8) != 0;
+        return getDefaultState().withProperty(COLOR, color).withProperty(FACADE, facade);
+    }
+
+    @Override
+    public int getMetaFromState(IBlockState state) {
+        int meta = state.getValue(COLOR).ordinal();
+        if (state.getValue(FACADE)) {
+            meta |= 0x8;
+        }
+        return meta;
+    }
     @Override
     public TileEntity createNewTileEntity(World world, int i) {
         return null;

@@ -182,6 +182,7 @@ public class LogicConnectorSettings extends AbstractConnectorSettings {
         super.writeToJsonInternal(object);
         setEnumSafe(object, "logicmode", logicMode);
         setIntegerSafe(object, "speed", speed);
+        setIntegerSafe(object, TAG_REDSTONE_OUT, redstoneOut);
         JsonArray sensorArray = new JsonArray();
         for (Sensor sensor : sensors) {
             JsonObject o = new JsonObject();
@@ -206,6 +207,7 @@ public class LogicConnectorSettings extends AbstractConnectorSettings {
         super.readFromJsonInternal(object);
         logicMode = getEnumSafe(object, "logicmode", EnumStringTranslators::getLogicMode);
         speed = getIntegerNotNull(object, "speed");
+        redstoneOut = getIntegerSafe(object, TAG_REDSTONE_OUT);
         JsonArray sensorArray = object.get("sensors").getAsJsonArray();
         sensors.clear();
         for (JsonElement oe : sensorArray) {
