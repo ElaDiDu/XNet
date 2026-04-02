@@ -106,6 +106,19 @@ public class ConnectorTileEntity extends GenericTileEntity implements IFacadeSup
     public void setMimicBlock(IBlockState mimicBlock) {
         mimicBlockSupport.setMimicBlock(mimicBlock);
         markDirtyClient();
+
+        if (world != null && !world.isRemote) {
+            IBlockState state = world.getBlockState(pos);
+            if (state.getBlock() instanceof ConnectorBlock) {
+                boolean facaded = mimicBlock != null;
+                if (state.getValue(ConnectorBlock.FACADE) != facaded) {
+                    world.setBlockState(pos, state.withProperty(ConnectorBlock.FACADE, facaded), 3);
+                    state = world.getBlockState(pos);
+                }
+            }
+            world.notifyBlockUpdate(pos, state, state, 3);
+            world.checkLight(pos);
+        }
     }
 
     @Override
