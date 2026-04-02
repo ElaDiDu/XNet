@@ -1,3 +1,12 @@
+1.8.19
+- Aligned Fluidchannel with itemchannels semantics
+- added 600 and 1200 timings to item/fluid/logic channel
+
+1.8.18:
+- Fixed Redstone Output Value not getting copy pasted
+- Fixed copied connectors with color conditions behaving wrong until updated
+- Facades now correctly block light
+
 1.8.17:
 - Fixed crashing when hovering over a JEI item with a GUI with no bounds open
 

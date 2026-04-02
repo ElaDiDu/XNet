@@ -45,7 +45,7 @@ public class ItemConnectorSettings extends AbstractConnectorSettings {
 
     public static final int FILTER_SIZE = 18;
     public static final IntList SPEEDS = new IntArrayList(new int[]{2, 4, 12, 20, 40});
-    public static final IntList ADVANCED_SPEEDS = new IntArrayList(new int[]{1, 2, 4, 12, 20, 40});
+    public static final IntList ADVANCED_SPEEDS = new IntArrayList(new int[]{1, 2, 4, 12, 20, 40, 120, 240});
 
     public enum ItemMode {
         INS,
@@ -117,7 +117,7 @@ public class ItemConnectorSettings extends AbstractConnectorSettings {
         advanced = gui.isAdvanced();
         String[] speeds;
         if (advanced) {
-            speeds = new String[] { "5", "10", "20", "60", "100", "200" };
+            speeds = new String[] { "5", "10", "20", "60", "100", "200", "600", "1200"};
         } else {
             speeds = new String[] { "10", "20", "60", "100", "200" };
         }
@@ -127,7 +127,6 @@ public class ItemConnectorSettings extends AbstractConnectorSettings {
         redstoneGui(gui);
         gui.nl()
                 .choices(TAG_MODE, "Insert or extract mode", itemMode, ItemMode.values())
-                .shift(5)
                 .choices(TAG_STACK, "Single item, stack, count max, highest, count exact (up to destination's space)", stackMode, StackMode.values());
 
         if ((stackMode == StackMode.COUNTM || stackMode == StackMode.COUNTE) && itemMode == ItemMode.EXT) {

@@ -13,8 +13,6 @@ import mcjty.xnet.api.helper.DefaultChannelSettings;
 import mcjty.xnet.api.keys.ConsumerId;
 import mcjty.xnet.apiimpl.EnumStringTranslators;
 import mcjty.xnet.api.keys.SidedConsumer;
-import mcjty.xnet.apiimpl.MInteger;
-import mcjty.xnet.blocks.cables.ConnectorBlock;
 import mcjty.xnet.config.ConfigSetup;
 import net.minecraft.nbt.NBTTagCompound;
 import net.minecraft.tileentity.TileEntity;
@@ -151,8 +149,10 @@ public class FluidChannelSettings extends DefaultChannelSettings implements ICha
 
                 int idx = getStartExtractIndex(settings, consumerId, handler);
                 idx = tickFluidHandler(context, settings, extractorPos, handler, idx);
-                if (handler.getTankProperties().length > 0)
+                if (settings.getExtractMode() != FluidConnectorSettings.ExtractMode.SLOT
+                        && handler.getTankProperties().length > 0) {
                     rememberExtractIndex(consumerId, (idx + 1) % handler.getTankProperties().length);
+                }
 
             }
         }
@@ -172,7 +172,6 @@ public class FluidChannelSettings extends DefaultChannelSettings implements ICha
                 if (slotCount == 0)
                     return 0;
 
-                // Try 5 times to find a non empty slot
                 for (int i = 0; i < 5; i++)
                 {
                     int idx = random.nextInt(slotCount);
@@ -181,7 +180,6 @@ public class FluidChannelSettings extends DefaultChannelSettings implements ICha
                         return idx;
                     }
                 }
-                // Otherwise use a more complicated algorithm
                 List<Integer> slots = new ArrayList<>();
                 for (int i = 0; i < slotCount; i++)
                 {
@@ -198,6 +196,11 @@ public class FluidChannelSettings extends DefaultChannelSettings implements ICha
             }
             case ORDER:
                 return getExtractIndex(consumerId);
+            case SLOT:
+            {
+                Integer tank = settings.getExtractTank();
+                return tank == null ? 0 : tank;
+            }
         }
         return 0;
     }
@@ -225,16 +228,40 @@ public class FluidChannelSettings extends DefaultChannelSettings implements ICha
 
         if (context.checkAndConsumeRF(ConfigSetup.controllerOperationRFT.get()))
         {
-            int rate = getRate(settings, context.getControllerWorld(), extractorPos);
+            int extractAmount = getExtractAmount(settings);
             int slots = handler.getTankProperties().length;
+
+            if (settings.getExtractMode() == FluidConnectorSettings.ExtractMode.SLOT) {
+                if (startIdx < 0 || startIdx >= slots) {
+                    return startIdx;
+                }
+                FluidStack stack = fetchFluid(handler, true, extractMatcher, extractAmount, startIdx);
+                if (stack != null) {
+                    int toextract = stack.amount;
+                    if (count != null) {
+                        int canextract = amount - count;
+                        if (canextract <= 0) {
+                            return startIdx;
+                        }
+                        if (canextract < toextract) {
+                            stack = stack.copy();
+                            stack.amount = canextract;
+                        }
+                    }
+
+                    if (transferStack(handler, stack, settings, startIdx, context)) {
+                        return startIdx;
+                    }
+                }
+                return startIdx;
+            }
+
             for (int i = startIdx; i < startIdx + slots; i++)
             {
                 int idx = i % slots;
-                FluidStack stack = fetchFluid(handler, true, extractMatcher, rate, idx);
+                FluidStack stack = fetchFluid(handler, true, extractMatcher, extractAmount, idx);
                 if (stack != null)
                 {
-                    // Now that we have a stack we first reduce the amount of the stack if we want to keep a certain
-                    // number of items
                     int toextract = stack.amount;
                     if (count != null)
                     {
@@ -245,9 +272,8 @@ public class FluidChannelSettings extends DefaultChannelSettings implements ICha
                         }
                         if (canextract < toextract)
                         {
-                            toextract = canextract;
                             stack = stack.copy();
-                            stack.amount = toextract;
+                            stack.amount = canextract;
                         }
                     }
 
@@ -260,13 +286,26 @@ public class FluidChannelSettings extends DefaultChannelSettings implements ICha
         return startIdx;
     }
 
-    private static int getRate(FluidConnectorSettings connector, World world, BlockPos pos)
+    private static int getExtractAmount(FluidConnectorSettings connector)
+    {
+        switch (connector.getAmountMode()) {
+            case BUCKET:
+                return 1000;
+            case BUCK8:
+                return 8000;
+            case HIGHEST:
+                return Integer.MAX_VALUE;
+            case RATE:
+            default:
+                Integer rate = connector.getRate();
+                return rate == null ? Integer.MAX_VALUE : Math.max(0, rate);
+        }
+    }
+
+    private static int getInsertRate(FluidConnectorSettings connector)
     {
         Integer rate = connector.getRate();
-        if (rate != null)
-            return Math.max(0, rate);
-
-        return ConnectorBlock.isAdvancedConnector(world, pos) ? ConfigSetup.maxFluidRateAdvanced.get() : ConfigSetup.maxFluidRateNormal.get();
+        return rate == null ? Integer.MAX_VALUE : Math.max(0, rate);
     }
 
 
@@ -307,11 +346,19 @@ public class FluidChannelSettings extends DefaultChannelSettings implements ICha
                                  FluidConnectorSettings extractSettings, int extractIdx,
                                  @Nonnull IControllerContext context)
     {
+        if (fluidConsumers == null || fluidConsumers.isEmpty()) {
+            return false;
+        }
+
         if (channelMode == ChannelMode.DISTRIBUTE)
         {
             Map<Pair<SidedConsumer, FluidConnectorSettings>, Integer> distribution = new HashMap<>();
-            int overallFilled = getOverallAndDistribution(distribution, context, stack);
-            int extracted = fillDistribute(distribution, overallFilled, context, stack);
+            int planned = getOverallAndDistribution(distribution, context, stack);
+            if (planned <= 0) {
+                return false;
+            }
+
+            int extracted = fillDistribute(distribution, context, stack);
             if (extracted > 0)
             {
                 // Insert then extract, should still be consistent?
@@ -319,8 +366,9 @@ public class FluidChannelSettings extends DefaultChannelSettings implements ICha
                         extractSettings.getMatcher(),
                         extracted,
                         extractIdx);
-                if (realInsert.amount != extracted)
-                    throw new RuntimeException("Expected to extract " + extracted + " fluid but extracted " + realInsert.amount);
+                if (realInsert == null || realInsert.amount != extracted) {
+                    throw new RuntimeException("Expected to extract " + extracted + " fluid but extracted " + (realInsert == null ? "null" : realInsert.amount));
+                }
                 return true;
             }
             return false;
@@ -360,7 +408,7 @@ public class FluidChannelSettings extends DefaultChannelSettings implements ICha
                 continue;
 
 
-            int remaining = insertToHandler(from, handler, stack, extractSettings, insertSettings, extractIdx, world, consumerPos);
+            int remaining = insertToHandler(from, handler, stack, extractSettings, insertSettings, extractIdx);
             // Round robin inserts to 1 inventory only
             if (channelMode == ChannelMode.ROUNDROBIN && originalCount != remaining)
                 return true;
@@ -377,12 +425,15 @@ public class FluidChannelSettings extends DefaultChannelSettings implements ICha
      */
     public int insertToHandler(@Nonnull IFluidHandler from, @Nonnull IFluidHandler to, @Nonnull FluidStack stack,
                                FluidConnectorSettings extractSettings, FluidConnectorSettings insertSettings,
-                               int extractIdx, World world, BlockPos consumerPos)
+                               int extractIdx)
     {
         Integer count = insertSettings.getMinmax();
         int total = stack.amount;
-        int rate = getRate(insertSettings, world, consumerPos);
+        int rate = getInsertRate(insertSettings);
         int toInsert = Math.min(rate, total);
+        if (toInsert <= 0) {
+            return total;
+        }
         if (count != null)
         {
             int amount = countFluid(to, insertSettings.getMatcher());
@@ -406,13 +457,16 @@ public class FluidChannelSettings extends DefaultChannelSettings implements ICha
                     extractSettings.getMatcher(),
                     filled,
                     extractIdx);
+            if (realInsert == null || realInsert.amount != filled) {
+                throw new RuntimeException("Expected to extract " + filled + " fluid but extracted " + (realInsert == null ? "null" : realInsert.amount));
+            }
             // Insert for real
             to.fill(realInsert, true);
 
             return total - filled;
         }
 
-        return stackToInsert.amount;
+        return total;
     }
 
 
@@ -451,8 +505,10 @@ public class FluidChannelSettings extends DefaultChannelSettings implements ICha
                     continue;
 
                 Integer count = settings.getMinmax();
-                int rate = getRate(settings, world, consumerPos);
+                int rate = getInsertRate(settings);
                 int toInsert = Math.min(rate, total);
+                if (toInsert <= 0)
+                    continue;
                 if (count != null)
                 {
                     int amount = countFluid(handler, settings.getMatcher());
@@ -471,7 +527,9 @@ public class FluidChannelSettings extends DefaultChannelSettings implements ICha
                 fillPossible.put(entry, possible);
             }
         }
-
+        if (filledOverall <= 0) {
+            return 0;
+        }
         int amountExtracted = 0;
         for (Map.Entry<Pair<SidedConsumer, FluidConnectorSettings>, Integer> entry : fillPossible.entrySet())
         {
@@ -499,7 +557,7 @@ public class FluidChannelSettings extends DefaultChannelSettings implements ICha
 
         return amountExtracted;
     }
-    private int fillDistribute(Map<Pair<SidedConsumer, FluidConnectorSettings>, Integer> fillPer, int filledOverall,
+    private int fillDistribute(Map<Pair<SidedConsumer, FluidConnectorSettings>, Integer> fillPer,
                                @Nonnull IControllerContext context, @Nonnull FluidStack stack)
     {
         World world = context.getControllerWorld();
@@ -515,8 +573,10 @@ public class FluidChannelSettings extends DefaultChannelSettings implements ICha
             IFluidHandler handler = getFluidHandlerAt(te, settings.getFacing());
 
             Integer count = settings.getMinmax();
-            int rate = getRate(settings, world, consumerPos);
+            int rate = getInsertRate(settings);
             int toInsert = Math.min(rate, stack.amount);
+            if (toInsert <= 0)
+                continue;
             if (count != null)
             {
                 int amount = countFluid(handler, settings.getMatcher());
