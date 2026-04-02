@@ -40,7 +40,7 @@ public class LogicConnectorSettings extends AbstractConnectorSettings {
 
     public static final int SENSORS = 4;
     public static final IntList SPEEDS = new IntArrayList(new int[]{2, 4, 12, 20, 40});
-    public static final IntList ADVANCED_SPEEDS = new IntArrayList(new int[]{1, 2, 4, 12, 20, 40});
+    public static final IntList ADVANCED_SPEEDS = new IntArrayList(new int[]{1, 2, 4, 12, 20, 40, 120, 240});
 
     private LogicMode logicMode = LogicMode.SENSOR;
     private List<Sensor> sensors = null;
@@ -126,7 +126,7 @@ public class LogicConnectorSettings extends AbstractConnectorSettings {
         advanced = gui.isAdvanced();
         String[] speeds;
         if (advanced) {
-            speeds = new String[] { "5", "10", "20", "60", "100", "200" };
+            speeds = new String[] { "5", "10", "20", "60", "100", "200", "600", "1200" };
         } else {
             speeds = new String[] { "10", "20", "60", "100", "200" };
         }

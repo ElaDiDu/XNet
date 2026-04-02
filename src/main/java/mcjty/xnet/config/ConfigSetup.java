@@ -27,9 +27,6 @@ public class ConfigSetup {
     public static ConfigSpec.IntValue maxRfRateNormal;
     public static ConfigSpec.IntValue maxRfRateAdvanced;
 
-    public static ConfigSpec.IntValue maxFluidRateNormal;
-    public static ConfigSpec.IntValue maxFluidRateAdvanced;
-
     public static ConfigSpec.IntValue controllerRFT;          // RF per tick that the controller uses all the time
     public static ConfigSpec.IntValue controllerChannelRFT;   // RF Per tick per enabled channel
     public static ConfigSpec.IntValue controllerOperationRFT; // RF Per tick per operation
@@ -96,13 +93,6 @@ public class ConfigSetup {
         maxRfRateAdvanced = SERVER_BUILDER
                 .comment("Maximum RF/rate that an advanced connector can input or output")
                 .defineInRange("maxRfRateAdvanced", 100000, 1, 1000000000);
-        maxFluidRateNormal = SERVER_BUILDER
-                .comment("Maximum fluid per operation that a normal connector can input or output")
-                .defineInRange("maxFluidRateNormal", 1000, 1, 1000000000);
-        maxFluidRateAdvanced = SERVER_BUILDER
-                .comment("Maximum fluid per operation that an advanced connector can input or output")
-                .defineInRange("maxFluidRateAdvanced", 5000, 1, 1000000000);
-
         maxPublishedChannels = SERVER_BUILDER
                 .comment("Maximum number of published channels that a routing channel can support")
                 .defineInRange("maxPublishedChannels", 32, 1, 1000000000);
