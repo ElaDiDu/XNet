@@ -23,6 +23,7 @@ import mcjty.xnet.api.keys.SidedConsumer;
 import mcjty.xnet.api.keys.SidedPos;
 import mcjty.xnet.apiimpl.fluids.FluidConnectorSettings;
 import mcjty.xnet.apiimpl.items.ItemConnectorSettings;
+import mcjty.xnet.apiimpl.logic.LogicConnectorSettings;
 import mcjty.xnet.blocks.cables.ConnectorBlock;
 import mcjty.xnet.blocks.cables.ConnectorTileEntity;
 import mcjty.xnet.blocks.cables.NetCableSetup;
@@ -287,6 +288,60 @@ public final class TileEntityController extends GenericEnergyReceiverTileEntity 
         }
     }
 
+    private void clearOutput(SidedConsumer consumer) {
+        BlockPos connectorPos = findConsumerPosition(consumer.getConsumerId());
+        if (connectorPos == null || !getWorld().isBlockLoaded(connectorPos)) {
+            return;
+        }
+        TileEntity te = getWorld().getTileEntity(connectorPos);
+        if (te instanceof ConnectorTileEntity) {
+            ((ConnectorTileEntity) te).setPowerOut(consumer.getSide(), 0);
+        }
+    }
+
+    private boolean isLogicOutput(@Nullable IConnectorSettings settings) {
+        return settings instanceof LogicConnectorSettings
+                && ((LogicConnectorSettings) settings).getLogicMode() == LogicConnectorSettings.LogicMode.OUTPUT;
+    }
+
+    private void clearIfLogicOutput(SidedConsumer consumer, @Nullable IConnectorSettings settings) {
+        if (isLogicOutput(settings)) {
+            clearOutput(consumer);
+        }
+    }
+
+    private void collectConfiguredLogicOutputs(@Nullable Map<SidedConsumer, ConnectorInfo> connectors, Set<SidedConsumer> out) {
+        if (connectors == null) {
+            return;
+        }
+        for (Map.Entry<SidedConsumer, ConnectorInfo> entry : connectors.entrySet()) {
+            if (isLogicOutput(entry.getValue().getConnectorSettings())) {
+                out.add(entry.getKey());
+            }
+        }
+    }
+    private void collectConfiguredLogicOutputsFromRuntime(int channel, Set<SidedConsumer> out) {
+        Map<SidedConsumer, IConnectorSettings> routed = getRoutedConnectors(channel);
+        for (Map.Entry<SidedConsumer, IConnectorSettings> entry : routed.entrySet()) {
+            if (isLogicOutput(entry.getValue())) {
+                out.add(entry.getKey());
+            }
+        }
+    }
+
+    private void clearChannelOutputs(int channel) {
+        if (channels[channel] == null) {
+            return;
+        }
+        Set<SidedConsumer> toClear = new HashSet<>();
+        collectConfiguredLogicOutputs(channels[channel].getConnectors(), toClear);
+        collectConfiguredLogicOutputsFromRuntime(channel, toClear);
+
+        for (SidedConsumer consumer : toClear) {
+            clearOutput(consumer);
+        }
+    }
+
     private void cleanCache(int channel) {
         cachedConnectors[channel] = null;
         cachedRoutedConnectors[channel] = null;
@@ -513,10 +568,16 @@ public final class TileEntityController extends GenericEnergyReceiverTileEntity 
         for (Key<?> key : params.getKeys()) {
             data.put(key.getName(), params.get(key));
         }
+
+        boolean oldEnabled = channels[channel].isEnabled();
         channels[channel].getChannelSettings().update(data);
 
         Boolean enabled = (Boolean) data.get(GuiController.TAG_ENABLED);
-        channels[channel].setEnabled(Boolean.TRUE.equals(enabled));
+        boolean newEnabled = Boolean.TRUE.equals(enabled);
+        if (oldEnabled && !newEnabled) {
+            clearChannelOutputs(channel);
+        }
+        channels[channel].setEnabled(newEnabled);
 
         String name = (String) data.get(GuiController.TAG_NAME);
         channels[channel].setChannelName(name);
@@ -530,6 +591,7 @@ public final class TileEntityController extends GenericEnergyReceiverTileEntity 
     }
 
     private void removeChannel(int channel) {
+        clearChannelOutputs(channel);
         channels[channel] = null;
         cachedConnectors[channel] = null;
         cachedRoutedConnectors[channel] = null;
@@ -553,8 +615,22 @@ public final class TileEntityController extends GenericEnergyReceiverTileEntity 
                 for (Key<?> k : params.getKeys()) {
                     data.put(k.getName(), params.get(k));
                 }
-                connectorInfo.getConnectorSettings().update(data);
-                connectorInfo.getConnectorSettings().sanitizeSettings(connectorInfo.isAdvanced());
+
+                IConnectorSettings settings = connectorInfo.getConnectorSettings();
+                LogicConnectorSettings.LogicMode oldMode = null;
+                if (settings instanceof LogicConnectorSettings) {
+                    oldMode = ((LogicConnectorSettings) settings).getLogicMode();
+                }
+
+                settings.update(data);
+                settings.sanitizeSettings(connectorInfo.isAdvanced());
+
+                if (settings instanceof LogicConnectorSettings
+                        && oldMode == LogicConnectorSettings.LogicMode.OUTPUT
+                        && ((LogicConnectorSettings) settings).getLogicMode() != LogicConnectorSettings.LogicMode.OUTPUT) {
+                    clearOutput(key);
+                }
+
                 markAsDirty();
                 return;
             }
@@ -575,6 +651,10 @@ public final class TileEntityController extends GenericEnergyReceiverTileEntity 
             }
         }
         if (toremove != null) {
+            ConnectorInfo info = channels[channel].getConnectors().get(toremove);
+            if (info != null) {
+                clearIfLogicOutput(toremove, info.getConnectorSettings());
+            }
             channels[channel].getConnectors().remove(toremove);
             markAsDirty();
         }
@@ -1095,6 +1175,12 @@ public final class TileEntityController extends GenericEnergyReceiverTileEntity 
 
     @Override
     public void onBlockBreak(World world, BlockPos pos, IBlockState state) {
+        for (int i = 0; i < MAX_CHANNELS; i++) {
+            if (channels[i] != null) {
+                clearChannelOutputs(i);
+            }
+        }
+
         super.onBlockBreak(world, pos, state);
         XNetBlobData blobData = XNetBlobData.getBlobData(this.world);
         WorldBlob worldBlob = blobData.getWorldBlob(this.world);
