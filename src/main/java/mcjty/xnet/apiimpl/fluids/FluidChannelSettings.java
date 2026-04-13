@@ -110,7 +110,7 @@ public class FluidChannelSettings extends DefaultChannelSettings implements ICha
         delay--;
         if (delay <= 0)
         {
-            delay = 200 * 6;      // Multiply of the different speeds we have
+            delay = 200 * 6;      // Multiple of the different speeds we have
         }
         if (delay % 10 != 0)
         {
@@ -119,17 +119,18 @@ public class FluidChannelSettings extends DefaultChannelSettings implements ICha
         int d = delay / 10;
 
         updateCache(channel, context);
-        // @todo optimize
         World world = context.getControllerWorld();
         for (Map.Entry<SidedConsumer, FluidConnectorSettings> entry : fluidExtractors.entrySet())
         {
             FluidConnectorSettings settings = entry.getValue();
-            if (d % settings.getSpeed() != 0)
-            {
+            ConsumerId consumerId = entry.getKey().getConsumerId();
+
+            int speed = settings.getSpeed();
+            int phase = consumerId.getId() % speed;
+            if (d % speed != phase) {
                 continue;
             }
 
-            ConsumerId consumerId = entry.getKey().getConsumerId();
             BlockPos extractorPos = context.findConsumerPosition(consumerId);
             if (extractorPos != null)
             {
@@ -153,7 +154,6 @@ public class FluidChannelSettings extends DefaultChannelSettings implements ICha
                         && handler.getTankProperties().length > 0) {
                     rememberExtractIndex(consumerId, (idx + 1) % handler.getTankProperties().length);
                 }
-
             }
         }
     }
