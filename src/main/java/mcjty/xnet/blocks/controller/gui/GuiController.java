@@ -138,6 +138,11 @@ public class GuiController extends GenericGuiContainer<TileEntityController> {
         connectorEditPanel = window.findChild("connectoreditpanel");
 
         searchBar = window.findChild("searchbar");
+        searchBar.setTooltips(
+                TextFormatting.GREEN + "Search connected blocks and connector names",
+                TextFormatting.WHITE + "Prefix " + TextFormatting.YELLOW + "!" + TextFormatting.WHITE + " to search connector names only",
+                TextFormatting.WHITE + "Use " + TextFormatting.YELLOW + "!" + TextFormatting.WHITE + " alone to show all named connectors"
+        );
         connectorList = window.findChild("connectors");
 
         connectorList.addSelectionEvent(new DefaultSelectionEvent() {
@@ -159,15 +164,14 @@ public class GuiController extends GenericGuiContainer<TileEntityController> {
     }
 
     private void hilightSelectedContainer(int index) {
-        if (index < 0) {
+        if (index < 0 || index >= connectorPositions.size()) {
             return;
         }
-        ConnectedBlockClientInfo c = fromServer_connectedBlocks.get(index);
-        if (c != null) {
-            XNet.instance.clientInfo.hilightBlock(c.getPos().getPos(), System.currentTimeMillis() + 1000 * 5);
-            Logging.message(mc.player, "The block is now highlighted");
-            //mc.player.closeScreen();
-        }
+
+        SidedPos sidedPos = connectorPositions.get(index);
+        XNet.instance.clientInfo.hilightBlock(sidedPos.getPos(), System.currentTimeMillis() + 1000 * 5);
+        Logging.message(mc.player, "The block is now highlighted");
+        //mc.player.closeScreen();
     }
 
     @Override
@@ -586,6 +590,28 @@ public class GuiController extends GenericGuiContainer<TileEntityController> {
         return -1;
     }
 
+    private boolean matchesSearch(String selectedText, String blockName, String connectorName) {
+        if (selectedText.isEmpty()) {
+            return true;
+        }
+
+        String lowerConnectorName = connectorName == null ? "" : connectorName.toLowerCase();
+
+        if (selectedText.startsWith("!")) {
+            String connectorSearch = selectedText.substring(1).trim();
+
+            // Typing only "!" shows all named connectors.
+            if (connectorSearch.isEmpty()) {
+                return !lowerConnectorName.isEmpty();
+            }
+
+            return lowerConnectorName.contains(connectorSearch);
+        }
+
+        String lowerBlockName = blockName == null ? "" : blockName.toLowerCase();
+
+        return lowerBlockName.contains(selectedText) || lowerConnectorName.contains(selectedText);
+    }
     private void populateList() {
         if (!listsReady()) {
             return;
@@ -613,12 +639,11 @@ public class GuiController extends GenericGuiContainer<TileEntityController> {
             int color = StyleConfig.colorTextInListNormal;
 
             Panel panel = new Panel(mc, this).setLayout(new HorizontalLayout().setHorizontalMargin(0).setSpacing(0));
-            if (!selectedText.isEmpty()) {
-                if (!blockName.toLowerCase().contains(selectedText)) {
-                    connectorPositions.add(sidedPos);
-                    continue;
-                }
+
+            if (!matchesSearch(selectedText, blockName, name)) {
+                continue;
             }
+
             BlockRender br;
             if (coordinate.equals(prevPos)) {
                 br = new BlockRender(mc, this);
@@ -662,9 +687,16 @@ public class GuiController extends GenericGuiContainer<TileEntityController> {
             connectorPositions.add(sidedPos);
         }
 
+        if (sel >= connectorList.getChildCount()) {
+            sel = connectorList.getChildCount() - 1;
+        }
+
         connectorList.setSelected(sel);
+
         if (delayedSelectedChannel != -1) {
-            connectorList.setSelected(delayedSelectedLine);
+            if (delayedSelectedLine >= 0 && delayedSelectedLine < connectorList.getChildCount()) {
+                connectorList.setSelected(delayedSelectedLine);
+            }
             selectConnectorEditor(delayedSelectedConnector, delayedSelectedChannel);
         }
         delayedSelectedChannel = -1;
