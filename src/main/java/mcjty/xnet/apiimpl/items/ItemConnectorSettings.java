@@ -261,6 +261,15 @@ public class ItemConnectorSettings extends AbstractConnectorSettings {
         return countMode;
     }
 
+    public boolean isOredictMode() { return oredictMode; }
+
+    public boolean isMetaMode() { return metaMode; }
+
+    public boolean isNbtMode() { return nbtMode; }
+
+    @Nullable
+    public Integer getExtractAmountSetting() { return extractAmount; }
+
     public ItemStackList getFilters()
     {
         return filters;
