@@ -2,7 +2,7 @@
 - Added 600 and 1200 timings to item/fluid/logic channels
 - Aligned Fluidchannel with itemchannel semantics
   - Simple staggering to avoid silent failures when multiple simulations hit the same
-fluidhandler on same tick. (itemhandlers does have this issue)
+fluidhandler on same tick. (itemhandlers does not have this issue)
 - Added JEI/HEI recipe fill support for item and fluid connector filters
     - Insert connectors add recipe inputs; extract connectors add recipe outputs
     - Shift + uses advanced/count-aware item fill
