@@ -9,10 +9,9 @@ fluidhandler on same tick. (itemhandlers does have this issue)
     - Fill is additive and preserves existing filters/settings
 - Added JEI and filter-control help buttons to the controller GUI
 - Improved JEI return behavior to keep the selected connector open
-- Added proper GUI exclusionzone for JEI
+- Added proper GUI exclusion-zone for JEI
 - Prevented mouse-wheel count editing from accidentally clearing ghost filters
 - Removed arbitrary controller RF input cap
-
 
 1.8.18:
 - Fixed Redstone Output Value not getting copy pasted
