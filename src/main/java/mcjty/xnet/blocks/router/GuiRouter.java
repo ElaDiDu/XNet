@@ -1,7 +1,6 @@
 package mcjty.xnet.blocks.router;
 
 import mcjty.lib.container.GenericContainer;
-import mcjty.lib.gui.GenericGuiContainer;
 import mcjty.lib.gui.Window;
 import mcjty.lib.gui.layout.HorizontalLayout;
 import mcjty.lib.gui.layout.PositionalLayout;
@@ -10,6 +9,7 @@ import mcjty.lib.typed.TypedMap;
 import mcjty.lib.varia.BlockPosTools;
 import mcjty.xnet.XNet;
 import mcjty.xnet.api.channels.IChannelType;
+import mcjty.xnet.blocks.generic.GenericXNetGuiContainer;
 import mcjty.xnet.clientinfo.ControllerChannelClientInfo;
 import mcjty.xnet.setup.GuiProxy;
 import mcjty.xnet.network.PacketGetLocalChannelsRouter;
@@ -22,7 +22,7 @@ import java.util.List;
 
 import static mcjty.xnet.blocks.router.TileEntityRouter.*;
 
-public class GuiRouter extends GenericGuiContainer<TileEntityRouter> {
+public class GuiRouter extends GenericXNetGuiContainer<TileEntityRouter> {
 
     private WidgetList localChannelList;
     private WidgetList remoteChannelList;

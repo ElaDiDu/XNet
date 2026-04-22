@@ -28,6 +28,7 @@ import mcjty.xnet.api.gui.IndicatorIcon;
 import mcjty.xnet.api.keys.SidedConsumer;
 import mcjty.xnet.api.keys.SidedPos;
 import mcjty.xnet.blocks.controller.TileEntityController;
+import mcjty.xnet.blocks.generic.GenericXNetGuiContainer;
 import mcjty.xnet.clientinfo.ChannelClientInfo;
 import mcjty.xnet.clientinfo.ConnectedBlockClientInfo;
 import mcjty.xnet.clientinfo.ConnectorClientInfo;
@@ -48,6 +49,16 @@ import net.minecraft.util.text.TextFormatting;
 import org.lwjgl.input.Keyboard;
 import org.lwjgl.input.Mouse;
 
+import mcjty.lib.varia.ItemStackList;
+import mcjty.xnet.apiimpl.fluids.FluidConnectorSettings;
+import mcjty.xnet.compat.jei.XNetJeiFluidFilterCollector;
+import mcjty.lib.typed.Key;
+import mcjty.lib.typed.Type;
+import mcjty.xnet.api.channels.IConnectorSettings;
+import mcjty.xnet.apiimpl.items.ItemConnectorSettings;
+import mcjty.xnet.compat.jei.XNetJeiItemFilterCollector;
+
+import javax.annotation.Nullable;
 import javax.annotation.Nonnull;
 import java.awt.*;
 import java.awt.datatransfer.Clipboard;
@@ -57,11 +68,13 @@ import java.awt.datatransfer.UnsupportedFlavorException;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Locale;
 
+import static mcjty.xnet.apiimpl.items.ItemConnectorSettings.*;
 import static mcjty.xnet.blocks.controller.TileEntityController.*;
 import static mcjty.xnet.logic.ChannelInfo.MAX_CHANNELS;
 
-public class GuiController extends GenericGuiContainer<TileEntityController> {
+public class GuiController extends GenericXNetGuiContainer<TileEntityController> {
 
     public static final String TAG_ENABLED = "enabled";
     public static final String TAG_NAME = "name";
@@ -90,6 +103,7 @@ public class GuiController extends GenericGuiContainer<TileEntityController> {
 
     private EnergyBar energyBar;
     private Button copyConnector = null;
+    private Window xnetSideHelpWindow = null;
 
     // From server.
     public static List<ChannelClientInfo> fromServer_channels = null;
@@ -107,16 +121,107 @@ public class GuiController extends GenericGuiContainer<TileEntityController> {
         openController = null;
     }
 
+    private static List<ItemStack> mergeItemFilters(ItemStackList existingFilters, List<ItemStack> addedFilters) {
+        List<ItemStack> merged = new ArrayList<>();
+
+        for (ItemStack stack : existingFilters) {
+            if (!stack.isEmpty()) {
+                merged.add(stack.copy());
+            }
+        }
+
+        for (ItemStack stack : addedFilters) {
+            if (!stack.isEmpty()) {
+                mergeExactItemFilter(merged, stack);
+            }
+        }
+
+        return merged;
+    }
+
+    private static void mergeExactItemFilter(List<ItemStack> merged, ItemStack stack) {
+        for (ItemStack existing : merged) {
+            if (ItemStack.areItemsEqual(existing, stack)
+                    && ItemStack.areItemStackTagsEqual(existing, stack)) {
+                existing.setCount(Math.max(existing.getCount(), stack.getCount()));
+                return;
+            }
+        }
+
+        merged.add(stack.copy());
+    }
+
+    private static List<ItemStack> mergeFluidFilters(ItemStackList existingFilters, List<ItemStack> addedFilters) {
+        List<ItemStack> merged = new ArrayList<>();
+
+        for (ItemStack stack : existingFilters) {
+            if (!stack.isEmpty()) {
+                merged.add(stack.copy());
+            }
+        }
+
+        for (ItemStack stack : addedFilters) {
+            if (!stack.isEmpty()) {
+                mergeExactItemFilter(merged, stack);
+            }
+        }
+
+        return merged;
+    }
+
+    @Override
+    protected void registerWindows(WindowManager mgr) {
+        super.registerWindows(mgr);
+
+        if (xnetSideHelpWindow == null) {
+            xnetSideHelpWindow = createXNetSideHelpWindow();
+        }
+
+        mgr.addWindow(xnetSideHelpWindow);
+    }
+
+    @Override
+    public List<Rectangle> getSideWindowBounds() {
+        List<Rectangle> bounds = new ArrayList<>(super.getSideWindowBounds());
+
+        if (xnetSideHelpWindow == null) {
+            xnetSideHelpWindow = createXNetSideHelpWindow();
+        }
+
+        if (xnetSideHelpWindow.getToplevel() != null) {
+            bounds.add(xnetSideHelpWindow.getToplevel().getBounds());
+        }
+
+        return bounds;
+    }
+
     @Override
     public void initGui() {
+        // JEI can temporarily replace this screen and then return to the same
+        // GuiController instance. Preserve the selected connector across re-init.
+        SidedPos previousEditingConnector = editingConnector;
+        int previousEditingChannel = editingChannel;
+
+        openController = this;
+
+        xnetSideHelpWindow = null;
+
         window = new Window(this, tileEntity, XNetMessages.INSTANCE, new ResourceLocation(XNet.MODID, "gui/controller.gui"));
         super.initGui();
-
         initializeFields();
         setupEvents();
 
-        editingConnector = null;
-        editingChannel = -1;
+        if (previousEditingConnector != null && previousEditingChannel >= 0) {
+            editingConnector = previousEditingConnector;
+            editingChannel = previousEditingChannel;
+
+            delayedSelectedConnector = previousEditingConnector;
+            delayedSelectedChannel = previousEditingChannel;
+            delayedSelectedLine = -1;
+        } else {
+            editingConnector = null;
+            editingChannel = -1;
+        }
 
         refresh();
         listDirty = 0;
@@ -138,6 +243,11 @@ public class GuiController extends GenericGuiContainer<TileEntityController> {
         connectorEditPanel = window.findChild("connectoreditpanel");
 
         searchBar = window.findChild("searchbar");
+        searchBar.setTooltips(
+                TextFormatting.GREEN + "Search connected blocks and connector names",
+                TextFormatting.WHITE + "Prefix " + TextFormatting.YELLOW + "!" + TextFormatting.WHITE + " to search connector names only",
+                TextFormatting.WHITE + "Use " + TextFormatting.YELLOW + "!" + TextFormatting.WHITE + " alone to show all named connectors"
+        );
         connectorList = window.findChild("connectors");
 
         connectorList.addSelectionEvent(new DefaultSelectionEvent() {
@@ -159,15 +269,14 @@ public class GuiController extends GenericGuiContainer<TileEntityController> {
     }
 
     private void hilightSelectedContainer(int index) {
-        if (index < 0) {
+        if (index < 0 || index >= connectorPositions.size()) {
             return;
         }
-        ConnectedBlockClientInfo c = fromServer_connectedBlocks.get(index);
-        if (c != null) {
-            XNet.instance.clientInfo.hilightBlock(c.getPos().getPos(), System.currentTimeMillis() + 1000 * 5);
-            Logging.message(mc.player, "The block is now highlighted");
-            //mc.player.closeScreen();
-        }
+
+        SidedPos sidedPos = connectorPositions.get(index);
+        XNet.instance.clientInfo.hilightBlock(sidedPos.getPos(), System.currentTimeMillis() + 1000 * 5);
+        Logging.message(mc.player, "The block is now highlighted");
+        //mc.player.closeScreen();
     }
 
     @Override
@@ -537,9 +646,11 @@ public class GuiController extends GenericGuiContainer<TileEntityController> {
 
                     ConnectorEditorPanel editor = new ConnectorEditorPanel(connectorEditPanel, mc, this, editingChannel, editingConnector);
 
-                    connectorInfo.getConnectorSettings().createGui(editor);
+                    IConnectorSettings connectorSettings = connectorInfo.getConnectorSettings();
+
+                    connectorSettings.createGui(editor);
                     connectorEditPanel.addChild(remove);
-                    editor.setState(connectorInfo.getConnectorSettings());
+                    editor.setState(connectorSettings);
                 } else {
                     Button create = new Button(mc, this)
                             .setText("Create")
@@ -586,6 +697,28 @@ public class GuiController extends GenericGuiContainer<TileEntityController> {
         return -1;
     }
 
+    private boolean matchesSearch(String selectedText, String blockName, String connectorName) {
+        if (selectedText.isEmpty()) {
+            return true;
+        }
+
+        String lowerConnectorName = connectorName == null ? "" : connectorName.toLowerCase();
+
+        if (selectedText.startsWith("!")) {
+            String connectorSearch = selectedText.substring(1).trim();
+
+            // Typing only "!" shows all named connectors.
+            if (connectorSearch.isEmpty()) {
+                return !lowerConnectorName.isEmpty();
+            }
+
+            return lowerConnectorName.contains(connectorSearch);
+        }
+
+        String lowerBlockName = blockName == null ? "" : blockName.toLowerCase();
+
+        return lowerBlockName.contains(selectedText) || lowerConnectorName.contains(selectedText);
+    }
     private void populateList() {
         if (!listsReady()) {
             return;
@@ -613,12 +746,11 @@ public class GuiController extends GenericGuiContainer<TileEntityController> {
             int color = StyleConfig.colorTextInListNormal;
 
             Panel panel = new Panel(mc, this).setLayout(new HorizontalLayout().setHorizontalMargin(0).setSpacing(0));
-            if (!selectedText.isEmpty()) {
-                if (!blockName.toLowerCase().contains(selectedText)) {
-                    connectorPositions.add(sidedPos);
-                    continue;
-                }
+
+            if (!matchesSearch(selectedText, blockName, name)) {
+                continue;
             }
+
             BlockRender br;
             if (coordinate.equals(prevPos)) {
                 br = new BlockRender(mc, this);
@@ -662,11 +794,24 @@ public class GuiController extends GenericGuiContainer<TileEntityController> {
             connectorPositions.add(sidedPos);
         }
 
+        if (sel >= connectorList.getChildCount()) {
+            sel = connectorList.getChildCount() - 1;
+        }
+
         connectorList.setSelected(sel);
-        if (delayedSelectedChannel != -1) {
-            connectorList.setSelected(delayedSelectedLine);
+
+        if (delayedSelectedChannel != -1 && delayedSelectedConnector != null) {
+            int line = findConnectorListIndex(delayedSelectedConnector);
+
+            if (line >= 0 && line < connectorList.getChildCount()) {
+                connectorList.setSelected(line);
+            } else if (delayedSelectedLine >= 0 && delayedSelectedLine < connectorList.getChildCount()) {
+                connectorList.setSelected(delayedSelectedLine);
+            }
+
             selectConnectorEditor(delayedSelectedConnector, delayedSelectedChannel);
         }
+
         delayedSelectedChannel = -1;
         delayedSelectedLine = -1;
         delayedSelectedConnector = null;
@@ -756,5 +901,318 @@ public class GuiController extends GenericGuiContainer<TileEntityController> {
         }
         else
             super.handleMouseClick(slotIn, slotId, mouseButton, type);
+    }
+
+    @Nullable
+    private ItemConnectorSettings getEditingItemConnectorSettings() {
+        if (!listsReady()) {
+            return null;
+        }
+
+        if (editingConnector == null || editingChannel < 0) {
+            return null;
+        }
+
+        ChannelClientInfo info = fromServer_channels.get(editingChannel);
+        if (info == null) {
+            return null;
+        }
+
+        ConnectorClientInfo clientInfo = findClientInfo(info, editingConnector);
+        if (clientInfo == null) {
+            return null;
+        }
+
+        IConnectorSettings settings = clientInfo.getConnectorSettings();
+        if (!(settings instanceof ItemConnectorSettings)) {
+            return null;
+        }
+
+        return (ItemConnectorSettings) settings;
+    }
+
+    @Nullable
+    private FluidConnectorSettings getEditingFluidConnectorSettings() {
+        if (!listsReady()) {
+            return null;
+        }
+
+        if (editingConnector == null || editingChannel < 0) {
+            return null;
+        }
+
+        ChannelClientInfo info = fromServer_channels.get(editingChannel);
+        if (info == null) {
+            return null;
+        }
+
+        ConnectorClientInfo clientInfo = findClientInfo(info, editingConnector);
+        if (clientInfo == null) {
+            return null;
+        }
+
+        IConnectorSettings settings = clientInfo.getConnectorSettings();
+        if (!(settings instanceof FluidConnectorSettings)) {
+            return null;
+        }
+
+        return (FluidConnectorSettings) settings;
+    }
+
+    public boolean canSetJeiRecipeFilters() {
+        return getEditingItemConnectorSettings() != null
+                || getEditingFluidConnectorSettings() != null;
+    }
+
+    @Nullable
+    public ItemConnectorSettings.ItemMode getJeiRecipeFilterItemMode() {
+        ItemConnectorSettings settings = getEditingItemConnectorSettings();
+        return settings == null ? null : settings.getItemMode();
+    }
+
+    @Nullable
+    public FluidConnectorSettings.FluidMode getJeiRecipeFilterFluidMode() {
+        FluidConnectorSettings settings = getEditingFluidConnectorSettings();
+        return settings == null ? null : settings.getFluidMode();
+    }
+
+    public int getJeiRecipeFilterLimit() {
+        if (getEditingItemConnectorSettings() != null) {
+            return ItemConnectorSettings.FILTER_SIZE;
+        }
+
+        if (getEditingFluidConnectorSettings() != null) {
+            return FluidConnectorSettings.FILTER_SIZE;
+        }
+
+        return 0;
+    }
+
+    public void setJeiRecipeFilters(XNetJeiItemFilterCollector.Result result) {
+        List<ItemStack> addedFilters = result.getFilters();
+        ItemConnectorSettings settings = getEditingItemConnectorSettings();
+
+        if (settings == null) {
+            showError("Select an item connector first!");
+            return;
+        }
+
+        List<ItemStack> filters = mergeItemFilters(settings.getFilters(), addedFilters);
+
+        if (addedFilters.isEmpty()) {
+            showError(result.isOutputs() ? "Recipe has no item outputs!" : "Recipe has no item inputs!");
+            return;
+        }
+
+        if (filters.size() > ItemConnectorSettings.FILTER_SIZE) {
+            showError("Recipe needs " + filters.size()
+                    + " filters after merging, but this connector supports "
+                    + ItemConnectorSettings.FILTER_SIZE + "!");
+            return;
+        }
+
+        TypedMap.Builder builder = TypedMap.builder()
+                .put(PARAM_CHANNEL, editingChannel)
+                .put(PARAM_POS, editingConnector.getPos())
+                .put(PARAM_SIDE, editingConnector.getSide().ordinal());
+
+        putString(builder, TAG_MODE, settings.getItemMode().name().toLowerCase(Locale.ROOT));
+        putString(builder, TAG_STACK, settings.getStackMode().name().toLowerCase(Locale.ROOT));
+        putString(builder, TAG_EXTRACT, settings.getExtractMode().name().toLowerCase(Locale.ROOT));
+        putString(builder, TAG_SPEED, Integer.toString(settings.getSpeed() * 5));
+
+        putBoolean(builder, TAG_BLACKLIST, settings.isBlacklist());
+        putBoolean(builder, TAG_OREDICT, settings.isOredictMode());
+
+        if (result.isAdvanced()) {
+            putBoolean(builder, TAG_COUNTMODE,
+                    settings.getItemMode() == ItemConnectorSettings.ItemMode.INS || settings.isCountMode());
+
+            putBoolean(builder, TAG_META, settings.isMetaMode() || result.needsMeta());
+            putBoolean(builder, TAG_NBT, settings.isNbtMode() || result.needsNbt());
+        } else {
+            putBoolean(builder, TAG_COUNTMODE, settings.isCountMode());
+            putBoolean(builder, TAG_META, settings.isMetaMode());
+            putBoolean(builder, TAG_NBT, settings.isNbtMode());
+        }
+
+        if (settings.getCount() != null) {
+            putInteger(builder, TAG_COUNT, settings.getCount());
+        }
+
+        if (settings.getExtractAmountSetting() != null) {
+            putInteger(builder, TAG_EXTRACT_AMOUNT, settings.getExtractAmountSetting());
+        }
+
+        putInteger(builder, TAG_PRIORITY, settings.getPriority());
+
+        if (settings.getSlot() != null) {
+            putInteger(builder, TAG_SLOT, settings.getSlot());
+        }
+
+        for (int i = 0; i < ItemConnectorSettings.FILTER_SIZE; i++) {
+            ItemStack stack = i < filters.size() ? filters.get(i).copy() : ItemStack.EMPTY;
+            putItemStack(builder, TAG_FILTER + i, stack);
+        }
+
+        rememberSelectedConnectorAfterRefresh();
+
+        sendServerCommand(XNetMessages.INSTANCE, TileEntityController.CMD_UPDATECONNECTOR, builder.build());
+        refresh();
+    }
+
+    public void setJeiFluidRecipeFilters(XNetJeiFluidFilterCollector.Result result) {
+        List<ItemStack> addedFilters = result.getFilters();
+        FluidConnectorSettings settings = getEditingFluidConnectorSettings();
+
+        if (settings == null) {
+            showError("Select a fluid connector first!");
+            return;
+        }
+
+        List<ItemStack> filters = mergeFluidFilters(settings.getFilters(), addedFilters);
+
+        if (addedFilters.isEmpty()) {
+            showError(result.isOutputs() ? "Recipe has no fluid outputs!" : "Recipe has no fluid inputs!");
+            return;
+        }
+
+        if (filters.size() > FluidConnectorSettings.FILTER_SIZE) {
+            showError("Recipe needs " + filters.size()
+                    + " filters after merging, but this connector supports "
+                    + FluidConnectorSettings.FILTER_SIZE + "!");
+            return;
+        }
+
+        TypedMap.Builder builder = TypedMap.builder()
+                .put(PARAM_CHANNEL, editingChannel)
+                .put(PARAM_POS, editingConnector.getPos())
+                .put(PARAM_SIDE, editingConnector.getSide().ordinal());
+
+        putString(builder, FluidConnectorSettings.TAG_MODE,
+                settings.getFluidMode().name().toLowerCase(Locale.ROOT));
+        putString(builder, FluidConnectorSettings.TAG_SPEED,
+                Integer.toString(settings.getSpeed() * 10));
+
+        putString(builder, FluidConnectorSettings.TAG_EXTRACT,
+                settings.getExtractMode().name().toLowerCase(Locale.ROOT));
+        putString(builder, FluidConnectorSettings.TAG_AMOUNTMODE,
+                settings.getAmountMode().name().toLowerCase(Locale.ROOT));
+
+        putBoolean(builder, FluidConnectorSettings.TAG_BLACKLIST, settings.isBlacklist());
+        putInteger(builder, FluidConnectorSettings.TAG_PRIORITY, settings.getPriority());
+
+        if (settings.getRate() != null) {
+            putInteger(builder, FluidConnectorSettings.TAG_RATE, settings.getRate());
+        }
+
+        if (settings.getMinmax() != null) {
+            putInteger(builder, FluidConnectorSettings.TAG_MINMAX, settings.getMinmax());
+        }
+
+        if (settings.getExtractTank() != null) {
+            putInteger(builder, FluidConnectorSettings.TAG_TANK, settings.getExtractTank());
+        }
+
+        for (int i = 0; i < FluidConnectorSettings.FILTER_SIZE; i++) {
+            ItemStack stack = i < filters.size() ? filters.get(i).copy() : ItemStack.EMPTY;
+            putItemStack(builder, FluidConnectorSettings.TAG_FILTER + i, stack);
+        }
+
+        rememberSelectedConnectorAfterRefresh();
+
+        sendServerCommand(XNetMessages.INSTANCE, TileEntityController.CMD_UPDATECONNECTOR, builder.build());
+        refresh();
+    }
+
+    private static void putString(TypedMap.Builder builder, String name, String value) {
+        builder.put(new Key<>(name, Type.STRING), value);
+    }
+
+    private static void putBoolean(TypedMap.Builder builder, String name, boolean value) {
+        builder.put(new Key<>(name, Type.BOOLEAN), value);
+    }
+
+    private static void putInteger(TypedMap.Builder builder, String name, int value) {
+        builder.put(new Key<>(name, Type.INTEGER), value);
+    }
+
+    private static void putItemStack(TypedMap.Builder builder, String name, ItemStack value) {
+        builder.put(new Key<>(name, Type.ITEMSTACK), value);
+    }
+
+    private void rememberSelectedConnectorAfterRefresh() {
+        if (editingConnector == null || editingChannel < 0) {
+            return;
+        }
+
+        delayedSelectedChannel = editingChannel;
+        delayedSelectedConnector = editingConnector;
+        delayedSelectedLine = findConnectorListIndex(editingConnector);
+    }
+
+    private int findConnectorListIndex(SidedPos sidedPos) {
+        for (int i = 0; i < connectorPositions.size(); i++) {
+            if (sidedPos.equals(connectorPositions.get(i))) {
+                return i;
+            }
+        }
+        return -1;
+    }
+
+    private Window createXNetSideHelpWindow() {
+        Button jeiHelpButton = new Button(mc, this)
+                .setText("J")
+                .setLayoutHint(new PositionalLayout.PositionalHint(1, 1, 16, 16))
+                .setTooltips(
+                        TextFormatting.GREEN + "JEI recipe fill",
+                        "",
+                        TextFormatting.YELLOW + "Selected INS connector",
+                        TextFormatting.WHITE + "  + adds inputs to filters",
+                        "",
+                        TextFormatting.YELLOW + "Selected EXT connector",
+                        TextFormatting.WHITE + "  + adds outputs to filters",
+                        "",
+                        TextFormatting.YELLOW + "Normal fill (+)",
+                        TextFormatting.WHITE + "  Uses 1x representative stacks",
+                        "",
+                        TextFormatting.YELLOW + "Advanced item fill (Shift +)",
+                        TextFormatting.WHITE + "  Uses recipe stack counts",
+                        TextFormatting.WHITE + "  Enables Meta/NBT if needed",
+                        TextFormatting.WHITE + "  INS also forces Count mode ON"
+                );
+
+        Button filterHelpButton = new Button(mc, this)
+                .setText("F")
+                .setLayoutHint(new PositionalLayout.PositionalHint(1, 19, 16, 16))
+                .setTooltips(
+                        TextFormatting.GREEN + "Filter count controls",
+                        "",
+                        TextFormatting.YELLOW + "Mouse wheel",
+                        TextFormatting.WHITE + "  Wheel: +/- 1",
+                        TextFormatting.WHITE + "  Ctrl + wheel: double / halve",
+                        "",
+                        TextFormatting.YELLOW + "Click count edit",
+                        TextFormatting.WHITE + "  Shift/Alt + left click: + count",
+                        TextFormatting.WHITE + "  Shift/Alt + right click: - count",
+                        TextFormatting.WHITE + "  Add Ctrl: double / halve"
+                );
+
+        Panel sidePanel = new Panel(mc, this)
+                .setLayout(new PositionalLayout())
+                .addChild(jeiHelpButton)
+                .addChild(filterHelpButton);
+
+        int sideLeft = guiLeft + xSize;
+
+        // McJtyLib's [?]/[s] side window is centered here:
+        int mcjtySideTop = guiTop + (ySize - 20) / 2 - 8;
+
+        // Put [J]/[F] directly above it.
+        int sideTop = mcjtySideTop - 40;
+
+        sidePanel.setBounds(new Rectangle(sideLeft, sideTop, 20, 40));
+
+        return new Window(this, sidePanel);
     }
 }
