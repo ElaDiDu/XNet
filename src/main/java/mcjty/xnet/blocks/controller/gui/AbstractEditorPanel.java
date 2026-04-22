@@ -414,22 +414,22 @@ public abstract class AbstractEditorPanel implements IEditorGui {
         }
     }
 
-    private void wheelOnItemFilter(int amount, String tag, BlockRenderFilter blockRender)  {
+    private void wheelOnItemFilter(int amount, String tag, BlockRenderFilter blockRender) {
         ItemStack stack = (ItemStack) blockRender.getRenderItem();
-        if (stack == null)
+        if (stack == null) {
             return;
+        }
 
         alterStackCount(stack, amount > 0);
-        if (stack.getCount() <= 0)
-        {
-            update(tag, ItemStack.EMPTY);
-            blockRender.setRenderItem(null);
+
+        // Mouse wheel should never clear the ghost filter.
+        // It is too easy to accidentally scroll the wrong direction while editing counts.
+        if (stack.getCount() <= 0) {
+            stack.setCount(1);
         }
-        else
-        {
-            update(tag, stack);
-            blockRender.setRenderItem(stack);
-        }
+
+        update(tag, stack);
+        blockRender.setRenderItem(stack);
     }
 
     private void alterStackCount(ItemStack stack, boolean increase)
