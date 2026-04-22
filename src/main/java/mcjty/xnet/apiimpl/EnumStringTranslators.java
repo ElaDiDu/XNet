@@ -24,6 +24,7 @@ public class EnumStringTranslators {
     private static Map<String, ItemChannelSettings.ChannelMode> itemChannelModeMap;
     private static Map<String, FluidChannelSettings.ChannelMode> fluidChannelModeMap;
     private static Map<String, FluidConnectorSettings.FluidMode> fluidModeMap;
+    private static Map<String, FluidConnectorSettings.AmountMode> fluidAmountModeMap;
     private static Map<String, EnergyConnectorSettings.EnergyMode> energyModeMap;
     private static Map<String, LogicConnectorSettings.LogicMode> logicModeMap;
     private static Map<String, Sensor.SensorMode> sensorModeMap;
@@ -83,6 +84,17 @@ public class EnumStringTranslators {
             }
         }
         return fluidModeMap.get(mode);
+    }
+
+    @Nullable
+    public static FluidConnectorSettings.AmountMode getFluidAmountMode(String mode) {
+        if (fluidAmountModeMap == null) {
+            fluidAmountModeMap = new HashMap<>();
+            for (FluidConnectorSettings.AmountMode value : FluidConnectorSettings.AmountMode.values()) {
+                fluidAmountModeMap.put(value.name(), value);
+            }
+        }
+        return fluidAmountModeMap.get(mode);
     }
 
     @Nullable
