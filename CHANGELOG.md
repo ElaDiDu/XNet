@@ -8,7 +8,9 @@ fluidhandler on same tick. (itemhandlers does have this issue)
     - Shift + uses advanced/count-aware item fill
     - Fill is additive and preserves existing filters/settings
 - Added JEI and filter-control help buttons to the controller GUI
-- Improved JEI return behavior to keep the selected connector open
+- Improved JEI return behavior preserve
+  - last selected connector open
+  - search text field
 - Added proper GUI exclusionzone for JEI
 - Prevented mouse-wheel count editing from accidentally clearing ghost filters
 - Removed arbitrary controller RF input cap

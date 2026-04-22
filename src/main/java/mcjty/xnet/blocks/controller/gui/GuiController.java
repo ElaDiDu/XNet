@@ -83,6 +83,7 @@ public class GuiController extends GenericXNetGuiContainer<TileEntityController>
     private List<SidedPos> connectorPositions = new ArrayList<>();
     private int listDirty;
     private TextField searchBar;
+    private String rememberedSearchText = "";
 
     private int delayedSelectedChannel = -1;
     private int delayedSelectedLine = -1;
@@ -198,18 +199,22 @@ public class GuiController extends GenericXNetGuiContainer<TileEntityController>
     @Override
     public void initGui() {
         // JEI can temporarily replace this screen and then return to the same
-        // GuiController instance. Preserve the selected connector across re-init.
+        // GuiController instance. Preserve the selected connector and search text across re-init.
         SidedPos previousEditingConnector = editingConnector;
         int previousEditingChannel = editingChannel;
+        String previousSearchText = searchBar == null ? rememberedSearchText : searchBar.getText();
 
         openController = this;
-
         xnetSideHelpWindow = null;
 
         window = new Window(this, tileEntity, XNetMessages.INSTANCE, new ResourceLocation(XNet.MODID, "gui/controller.gui"));
         super.initGui();
+
         initializeFields();
         setupEvents();
+
+        rememberedSearchText = previousSearchText == null ? "" : previousSearchText;
+        searchBar.setText(rememberedSearchText);
 
         if (previousEditingConnector != null && previousEditingChannel >= 0) {
             editingConnector = previousEditingConnector;
@@ -230,7 +235,11 @@ public class GuiController extends GenericXNetGuiContainer<TileEntityController>
     }
 
     private void setupEvents() {
-        window.event("searchbar", (source, params) -> { needsRefresh = true; });
+        window.event("searchbar", (source, params) -> {
+            rememberedSearchText = searchBar.getText();
+            needsRefresh = true;
+        });
+
         for (int i = 0 ; i < MAX_CHANNELS ; i++) {
             String channel = "channel" + (i+1);
             int finalI = i;
