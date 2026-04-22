@@ -1,3 +1,18 @@
+1.8.19
+- Added 600 and 1200 timings to item/fluid/logic channels
+- Aligned Fluidchannel with itemchannel semantics
+    - Simple staggering to avoid silent failures when multiple simulations hit the same
+      fluidhandler on same tick. (itemhandlers does not have this issue)
+- Added JEI/HEI recipe fill support for item and fluid connector filters
+    - Insert connectors add recipe inputs; extract connectors add recipe outputs
+    - Shift + uses advanced/count-aware item fill
+    - Fill is additive and preserves existing filters/settings
+- Added JEI and filter-control help buttons to the controller GUI
+- Improved JEI return behavior to keep the selected connector open
+- Added proper GUI exclusion-zone for JEI
+- Prevented mouse-wheel count editing from accidentally clearing ghost filters
+- Removed arbitrary controller RF input cap
+
 1.8.18:
 - Fixed Redstone Output Value not getting copy pasted
 - Fixed copied connectors with color conditions behaving wrong until updated

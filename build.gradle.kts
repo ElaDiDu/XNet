@@ -13,11 +13,7 @@ plugins {
 
 // Project properties
 group = "eladidu.xnet"
-<<<<<<< HEAD
-version = "1.8.18"
-=======
 version = "1.8.19"
->>>>>>> 142c00bb (Version bump 1.8.18)
 
 // Set the toolchain version to decouple the Java we run Gradle with from the Java used to compile and run the mod
 java {
