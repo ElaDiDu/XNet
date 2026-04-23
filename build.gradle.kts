@@ -183,6 +183,8 @@ dependencies {
     implementation(rfg.deobf("curse.maven:redstoneflux-270789:2920436"))
     implementation(rfg.deobf("curse.maven:tesla-244651:2487959"))
     implementation("curse.maven:had-enough-items-557549:4810661")
+
+    compileOnly(rfg.deobf("curse.maven:mouse-tweaks-unofficial-461660:5876158"))
     // For ctm compat integration. (if ever)
     //implementation(rfg.deobf("curse.maven:ctm-267602:2915363"))
     implementation(rfg.deobf("curse.maven:the-one-probe-245211:2667280"))
