@@ -14,7 +14,7 @@ fluidhandler on same tick.
 - Added proper GUI exclusionzone for JEI
 - Prevented mouse-wheel count editing from accidentally clearing ghost filters
 - Disabled Mousetweak's WheelTweak for Controller. Repairs scrolling.
-
+- Search by connectornames in controllerGUI.
 
 1.8.18:
 - Fixed Redstone Output Value not getting copy pasted
