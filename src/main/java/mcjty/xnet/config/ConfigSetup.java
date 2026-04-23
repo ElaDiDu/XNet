@@ -15,6 +15,7 @@ public class ConfigSetup {
     public static final String CATEGORY_GENERAL = "general";
 
     public static ConfigSpec.IntValue controllerMaxRF;
+    public static ConfigSpec.IntValue controllerRfPerTick;
 
     public static ConfigSpec.IntValue wirelessRouterMaxRF;
     public static ConfigSpec.IntValue wirelessRouterRfPerTick;
@@ -60,6 +61,9 @@ public class ConfigSetup {
         controllerMaxRF = SERVER_BUILDER
                 .comment("Maximum RF the controller can store")
                 .defineInRange("controllerMaxRF", 100000, 1, 1000000000);
+        controllerRfPerTick = SERVER_BUILDER
+                .comment("Maximum RF the controller can receive per tick")
+                .defineInRange("controllerRfPerTick", 1000, 1, 1000000000);
         wirelessRouterMaxRF = SERVER_BUILDER
                 .comment("Maximum RF the wireless router can store")
                 .defineInRange("wirelessRouterMaxRF", 100000, 1, 1000000000);

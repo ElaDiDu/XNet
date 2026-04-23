@@ -117,7 +117,7 @@ public final class TileEntityController extends GenericEnergyReceiverTileEntity 
     private NetworkChecker networkChecker = null;
 
     public TileEntityController() {
-        super(ConfigSetup.controllerMaxRF.get(), ConfigSetup.controllerMaxRF.get());
+        super(ConfigSetup.controllerMaxRF.get(), ConfigSetup.controllerRfPerTick.get());
         for (int i = 0; i < MAX_CHANNELS; i++) {
             channels[i] = null;
         }

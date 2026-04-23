@@ -57,6 +57,7 @@ import mcjty.lib.typed.Type;
 import mcjty.xnet.api.channels.IConnectorSettings;
 import mcjty.xnet.apiimpl.items.ItemConnectorSettings;
 import mcjty.xnet.compat.jei.XNetJeiItemFilterCollector;
+import yalter.mousetweaks.api.MouseTweaksDisableWheelTweak;
 
 import javax.annotation.Nullable;
 import javax.annotation.Nonnull;
@@ -74,6 +75,7 @@ import static mcjty.xnet.apiimpl.items.ItemConnectorSettings.*;
 import static mcjty.xnet.blocks.controller.TileEntityController.*;
 import static mcjty.xnet.logic.ChannelInfo.MAX_CHANNELS;
 
+@MouseTweaksDisableWheelTweak
 public class GuiController extends GenericXNetGuiContainer<TileEntityController> {
 
     public static final String TAG_ENABLED = "enabled";
