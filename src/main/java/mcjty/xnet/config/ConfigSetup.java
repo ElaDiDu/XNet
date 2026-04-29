@@ -27,6 +27,24 @@ public class ConfigSetup {
     public static ConfigSpec.IntValue maxRfRateNormal;
     public static ConfigSpec.IntValue maxRfRateAdvanced;
 
+    public static final int MAX_TRANSFER_UNLIMITED = Integer.MAX_VALUE;
+
+    public static ConfigSpec.IntValue maxItemTransferNormal;
+    public static ConfigSpec.IntValue maxItemTransferAdvanced;
+    public static ConfigSpec.IntValue maxFluidTransferNormal;
+    public static ConfigSpec.IntValue maxFluidTransferAdvanced;
+
+    // Cached primitive values. No allocation, no GC, no per transfer look-up.
+    public static int maxItemTransferNormalCached = MAX_TRANSFER_UNLIMITED;
+    public static int maxItemTransferAdvancedCached = MAX_TRANSFER_UNLIMITED;
+    public static int maxFluidTransferNormalCached = MAX_TRANSFER_UNLIMITED;
+    public static int maxFluidTransferAdvancedCached = MAX_TRANSFER_UNLIMITED;
+
+    // Fast-path booleans.
+    // In the default case, these are false, so channel code exits immediately.
+    public static boolean itemTransferCapsEnabled = false;
+    public static boolean fluidTransferCapsEnabled = false;
+
     public static ConfigSpec.IntValue controllerRFT;          // RF per tick that the controller uses all the time
     public static ConfigSpec.IntValue controllerChannelRFT;   // RF Per tick per enabled channel
     public static ConfigSpec.IntValue controllerOperationRFT; // RF Per tick per operation
@@ -93,6 +111,21 @@ public class ConfigSetup {
         maxRfRateAdvanced = SERVER_BUILDER
                 .comment("Maximum RF/rate that an advanced connector can input or output")
                 .defineInRange("maxRfRateAdvanced", 100000, 1, 1000000000);
+        maxItemTransferNormal = SERVER_BUILDER
+                .comment("Global maximum number of items transferred per operation by a normal item connector. Applies to all item transfer modes, including Highest. Default is unlimited.")
+                .defineInRange("maxItemTransferNormal", MAX_TRANSFER_UNLIMITED, 1, MAX_TRANSFER_UNLIMITED);
+
+        maxItemTransferAdvanced = SERVER_BUILDER
+                .comment("Global maximum number of items transferred per operation by an advanced item connector. Applies to all item transfer modes, including Highest. Default is unlimited.")
+                .defineInRange("maxItemTransferAdvanced", MAX_TRANSFER_UNLIMITED, 1, MAX_TRANSFER_UNLIMITED);
+
+        maxFluidTransferNormal = SERVER_BUILDER
+                .comment("Global maximum amount of fluid in mB transferred per operation by a normal fluid connector. Applies to all fluid transfer modes, including Highest. Default is unlimited.")
+                .defineInRange("maxFluidTransferNormal", MAX_TRANSFER_UNLIMITED, 1, MAX_TRANSFER_UNLIMITED);
+
+        maxFluidTransferAdvanced = SERVER_BUILDER
+                .comment("Global maximum amount of fluid in mB transferred per operation by an advanced fluid connector. Applies to all fluid transfer modes, including Highest. Default is unlimited.")
+                .defineInRange("maxFluidTransferAdvanced", MAX_TRANSFER_UNLIMITED, 1, MAX_TRANSFER_UNLIMITED);
         maxPublishedChannels = SERVER_BUILDER
                 .comment("Maximum number of published channels that a routing channel can support")
                 .defineInRange("maxPublishedChannels", 32, 1, 1000000000);
@@ -123,9 +156,22 @@ public class ConfigSetup {
 
     public static ConfigSpec SERVER_CONFIG;
     public static ConfigSpec CLIENT_CONFIG;
-
-
     public static Configuration mainConfig;
+
+    public static void syncCachedValues() {
+        maxItemTransferNormalCached = maxItemTransferNormal.get();
+        maxItemTransferAdvancedCached = maxItemTransferAdvanced.get();
+        maxFluidTransferNormalCached = maxFluidTransferNormal.get();
+        maxFluidTransferAdvancedCached = maxFluidTransferAdvanced.get();
+
+        itemTransferCapsEnabled =
+                maxItemTransferNormalCached != MAX_TRANSFER_UNLIMITED ||
+                        maxItemTransferAdvancedCached != MAX_TRANSFER_UNLIMITED;
+
+        fluidTransferCapsEnabled =
+                maxFluidTransferNormalCached != MAX_TRANSFER_UNLIMITED ||
+                        maxFluidTransferAdvancedCached != MAX_TRANSFER_UNLIMITED;
+    }
 
     public static void init() {
         mainConfig = new Configuration(new File(XNet.setup.getModConfigDir().getPath() + File.separator + "xnet", "xnet.cfg"));
@@ -134,6 +180,7 @@ public class ConfigSetup {
             cfg.load();
             SERVER_CONFIG = SERVER_BUILDER.build(mainConfig);
             CLIENT_CONFIG = CLIENT_BUILDER.build(mainConfig);
+            syncCachedValues();
         } catch (Exception e1) {
             FMLLog.log(Level.ERROR, e1, "Problem loading config file!");
         }

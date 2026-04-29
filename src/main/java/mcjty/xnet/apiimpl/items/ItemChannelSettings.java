@@ -68,6 +68,20 @@ public class ItemChannelSettings extends DefaultChannelSettings implements IChan
         return 0;
     }
 
+    private static int capItemTransfer(ItemConnectorSettings connector, int amount) {
+        // Fast path: both normal and advanced caps are default/ unlimited,
+        // so nothing to clamp and no need to check connector-type.
+        if (!ConfigSetup.itemTransferCapsEnabled) {
+            return amount;
+        }
+
+        int maxTransfer = connector.isAdvanced()
+                ? ConfigSetup.maxItemTransferAdvancedCached
+                : ConfigSetup.maxItemTransferNormalCached;
+
+        return amount > maxTransfer ? maxTransfer : amount;
+    }
+
     @Override
     public JsonObject writeToJson() {
         JsonObject object = new JsonObject();
@@ -264,7 +278,7 @@ public class ItemChannelSettings extends DefaultChannelSettings implements IChan
                 extractMatcher,
                 settings.getStackMode(),
                 settings.getExtractAmount(),
-                Integer.MAX_VALUE,
+                capItemTransfer(settings, ConfigSetup.MAX_TRANSFER_UNLIMITED),
                 idx);
         if (stack.isEmpty())
             return ItemStack.EMPTY;
@@ -374,7 +388,7 @@ public class ItemChannelSettings extends DefaultChannelSettings implements IChan
         Integer count = insertSettings.getCount();
         int slots = to.getSlots();
         int total = stack.getCount();
-        int toInsert = total;
+        int toInsert = capItemTransfer(insertSettings, total);
         if (count != null)
         {
             int amount = countItems(to, insertSettings.getMatcher());
@@ -444,7 +458,7 @@ public class ItemChannelSettings extends DefaultChannelSettings implements IChan
     {
         Integer count = insertSettings.getCount();
         int total = stack.getCount();
-        int toInsert = total;
+        int toInsert = capItemTransfer(insertSettings, total);
         if (count != null)
         {
             int amount = RFToolsSupport.countItems(to, insertSettings.getMatcher(), count);
@@ -509,7 +523,7 @@ public class ItemChannelSettings extends DefaultChannelSettings implements IChan
                     BlockPos pos = consumerPos.offset(side);
                     TileEntity te = world.getTileEntity(pos);
                     int actuallyinserted = 0;
-                    int toinsert = total;
+                    int toinsert = capItemTransfer(settings, total);
                     ItemStack remaining;
                     Integer count = settings.getCount();
 
@@ -576,7 +590,7 @@ public class ItemChannelSettings extends DefaultChannelSettings implements IChan
             BlockPos pos = consumerPosition.offset(side);
             TileEntity te = context.getControllerWorld().getTileEntity(pos);
             if (ModSetup.rftools && RFToolsSupport.isStorageScanner(te)) {
-                int toinsert = total;
+                int toinsert = capItemTransfer(settings, total);
                 Integer count = settings.getCount();
                 if (count != null) {
                     int amount = RFToolsSupport.countItems(te, settings.getMatcher(), count);
@@ -607,7 +621,7 @@ public class ItemChannelSettings extends DefaultChannelSettings implements IChan
             } else {
                 IItemHandler handler = getItemHandlerAt(te, settings.getFacing());
 
-                int toinsert = total;
+                int toinsert = capItemTransfer(settings, total);
                 Integer count = settings.getCount();
                 if (count != null) {
                     int amount = countItems(handler, settings.getMatcher());

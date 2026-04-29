@@ -105,9 +105,13 @@ public abstract class AbstractConnectorSettings implements IConnectorSettings {
     }
 
     @Override
-    public void sanitizeSettings(boolean advanced)
-    {
+    public void sanitizeSettings(boolean advanced) {
+        this.advanced = advanced;
         facingOverride = advanced ? facingOverride : null;
+    }
+
+    public boolean isAdvanced() {
+        return advanced;
     }
 
     protected static <T extends Enum<T>> void setEnumSafe(JsonObject object, String tag, T value) {
