@@ -5,7 +5,6 @@ import com.google.gson.JsonParser;
 import mcjty.lib.base.StyleConfig;
 import mcjty.lib.client.RenderHelper;
 import mcjty.lib.container.GenericContainer;
-import mcjty.lib.gui.GenericGuiContainer;
 import mcjty.lib.gui.Window;
 import mcjty.lib.gui.WindowManager;
 import mcjty.lib.gui.events.ButtonEvent;
@@ -57,7 +56,7 @@ import mcjty.lib.typed.Type;
 import mcjty.xnet.api.channels.IConnectorSettings;
 import mcjty.xnet.apiimpl.items.ItemConnectorSettings;
 import mcjty.xnet.compat.jei.XNetJeiItemFilterCollector;
-import yalter.mousetweaks.api.MouseTweaksDisableWheelTweak;
+import yalter.mousetweaks.api.MouseTweaksIgnore;
 
 import javax.annotation.Nullable;
 import javax.annotation.Nonnull;
@@ -75,7 +74,7 @@ import static mcjty.xnet.apiimpl.items.ItemConnectorSettings.*;
 import static mcjty.xnet.blocks.controller.TileEntityController.*;
 import static mcjty.xnet.logic.ChannelInfo.MAX_CHANNELS;
 
-@MouseTweaksDisableWheelTweak
+@MouseTweaksIgnore
 public class GuiController extends GenericXNetGuiContainer<TileEntityController> {
 
     public static final String TAG_ENABLED = "enabled";
