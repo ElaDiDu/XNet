@@ -17,6 +17,7 @@ public class ConnectorInfo {
         this.id = id;
         this.advanced = advanced;
         connectorSettings = type.createConnector(id.getSide().getOpposite());
+        connectorSettings.sanitizeSettings(advanced);
     }
 
     public IChannelType getType() {
@@ -41,5 +42,6 @@ public class ConnectorInfo {
 
     public void readFromNBT(NBTTagCompound tag) {
         connectorSettings.readFromNBT(tag);
+        connectorSettings.sanitizeSettings(advanced);
     }
 }

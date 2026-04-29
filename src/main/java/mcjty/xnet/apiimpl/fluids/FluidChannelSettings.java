@@ -59,6 +59,20 @@ public class FluidChannelSettings extends DefaultChannelSettings implements ICha
         return channelMode;
     }
 
+    private static int capFluidTransfer(FluidConnectorSettings connector, int amount) {
+        // Fast path: both normal and advanced caps are default/ unlimited,
+        // so nothing to clamp and no need to check connector-type.
+        if (!ConfigSetup.fluidTransferCapsEnabled) {
+            return amount;
+        }
+
+        int maxTransfer = connector.isAdvanced()
+                ? ConfigSetup.maxFluidTransferAdvancedCached
+                : ConfigSetup.maxFluidTransferNormalCached;
+
+        return amount > maxTransfer ? maxTransfer : amount;
+    }
+
     @Override
     public JsonObject writeToJson()
     {
@@ -286,26 +300,28 @@ public class FluidChannelSettings extends DefaultChannelSettings implements ICha
         return startIdx;
     }
 
-    private static int getExtractAmount(FluidConnectorSettings connector)
-    {
+    private static int getExtractAmount(FluidConnectorSettings connector) {
+        int amount;
         switch (connector.getAmountMode()) {
             case BUCKET:
-                return 1000;
-            case BUCK8:
-                return 8000;
+                amount = 1000;
+                break;
             case HIGHEST:
-                return Integer.MAX_VALUE;
+                amount = Integer.MAX_VALUE;
+                break;
             case RATE:
             default:
                 Integer rate = connector.getRate();
-                return rate == null ? Integer.MAX_VALUE : Math.max(0, rate);
+                amount = rate == null ? Integer.MAX_VALUE : Math.max(0, rate);
+                break;
         }
+        return capFluidTransfer(connector, amount);
     }
 
-    private static int getInsertRate(FluidConnectorSettings connector)
-    {
+    private static int getInsertRate(FluidConnectorSettings connector) {
         Integer rate = connector.getRate();
-        return rate == null ? Integer.MAX_VALUE : Math.max(0, rate);
+        int amount = rate == null ? Integer.MAX_VALUE : Math.max(0, rate);
+        return capFluidTransfer(connector, amount);
     }
 
 

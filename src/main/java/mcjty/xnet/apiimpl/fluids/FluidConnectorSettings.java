@@ -60,7 +60,6 @@ public class FluidConnectorSettings extends AbstractConnectorSettings {
     public enum AmountMode
     {
         BUCKET,
-        BUCK8,
         RATE,
         HIGHEST
     }
@@ -140,9 +139,36 @@ public class FluidConnectorSettings extends AbstractConnectorSettings {
         return null;
     }
 
+    // if someone tried the dirty jar on their save, help them
+    private static AmountMode readAmountModeFromNBT(NBTTagCompound tag) {
+        if (!tag.hasKey("amountMode")) {
+            return AmountMode.BUCKET;
+        }
+
+        int rawMode = tag.getByte("amountMode") & 255;
+        AmountMode[] values = AmountMode.values();
+
+        if (rawMode < values.length) {
+            return values[rawMode];
+        }
+        // Crash-safety for old dev-alpha saves where HIGHEST was ordinal 3.
+        if (rawMode == 3) {
+            return AmountMode.HIGHEST;
+        }
+
+        return AmountMode.BUCKET;
+    }
+
+    private void sanitizeFluidTransferSettings() {
+        if (amountMode == null) {
+            amountMode = AmountMode.BUCKET;
+        }
+    }
+
     @Override
     public void createGui(IEditorGui gui) {
         advanced = gui.isAdvanced();
+        sanitizeFluidTransferSettings();
         String[] speeds;
         if (advanced) {
             speeds = new String[] { "10", "20", "60", "100", "200", "600", "1200" };
@@ -157,10 +183,10 @@ public class FluidConnectorSettings extends AbstractConnectorSettings {
         if (fluidMode == FluidMode.EXT) {
             gui.nl()
                     .choices(TAG_MODE, "Insert or extract mode", fluidMode, FluidMode.values())
-                    .choices(TAG_AMOUNTMODE, "Extraction amount |Bucket, Buck8, Rate, Highest", amountMode, AmountMode.values());
+                    .choices(TAG_AMOUNTMODE, "Extraction amount|Bucket, Rate, Highest", amountMode, AmountMode.values());
 
             if (amountMode == AmountMode.RATE) {
-                gui.integer(TAG_RATE, "Fluid extraction rate|per operation|(empty = unlimited)", rate, 36);
+                gui.integer(TAG_RATE, "Fluid extraction rate|per operation|(empty = max)", rate, 36);
             }
 
             gui.shift(2)
@@ -186,7 +212,7 @@ public class FluidConnectorSettings extends AbstractConnectorSettings {
         } else {
             gui.nl()
                     .choices(TAG_MODE, "Insert or extract mode", fluidMode, FluidMode.values())
-                    .integer(TAG_RATE, "Fluid insertion rate|per operation|(empty = unlimited)", rate, 36)
+                    .integer(TAG_RATE, "Fluid insertion rate|per operation|(empty = max)", rate, 36)
                     .choices(TAG_SPEED, "Number of ticks for each operation", Integer.toString(speed * 10), speeds)
                     .nl()
 
@@ -290,7 +316,6 @@ public class FluidConnectorSettings extends AbstractConnectorSettings {
         if (data.containsKey(TAG_RATE)) {
             rate = (Integer) data.get(TAG_RATE);
         }
-
         minmax = (Integer) data.get(TAG_MINMAX);
         priority = (Integer) data.get(TAG_PRIORITY);
         blacklist = Boolean.TRUE.equals(data.get(TAG_BLACKLIST));
@@ -313,6 +338,7 @@ public class FluidConnectorSettings extends AbstractConnectorSettings {
         for (int i = 0; i < FILTER_SIZE; i++) {
             filters.set(i, (ItemStack) data.get(TAG_FILTER + i));
         }
+        sanitizeFluidTransferSettings();
         matcher = null;
     }
 
@@ -322,6 +348,7 @@ public class FluidConnectorSettings extends AbstractConnectorSettings {
         super.sanitizeSettings(advanced);
         int minSpeed = advanced ? ADVANCED_SPEEDS.get(0) : SPEEDS.get(0);
         speed = Math.max(speed, minSpeed);
+        sanitizeFluidTransferSettings();
     }
 
     @Override
@@ -375,6 +402,7 @@ public class FluidConnectorSettings extends AbstractConnectorSettings {
             }
         }
         extractMode = getEnumSafe(object, "extractmode", EnumStringTranslators::getFluidExtractMode);
+        sanitizeFluidTransferSettings();
         matcher = null;
     }
 
@@ -384,11 +412,7 @@ public class FluidConnectorSettings extends AbstractConnectorSettings {
     {
         super.readFromNBT(tag);
         fluidMode = FluidMode.values()[tag.getByte("fluidMode")];
-        if (tag.hasKey("amountMode")) {
-            amountMode = AmountMode.values()[tag.getByte("amountMode")];
-        } else {
-            amountMode = AmountMode.BUCKET;
-        }
+        amountMode = readAmountModeFromNBT(tag);
         if (tag.hasKey("priority"))
         {
             priority = tag.getInteger("priority");
@@ -456,6 +480,7 @@ public class FluidConnectorSettings extends AbstractConnectorSettings {
                 extractMode = ExtractMode.FIRST;
             }
         }
+        sanitizeFluidTransferSettings();
         matcher = null;
     }
 

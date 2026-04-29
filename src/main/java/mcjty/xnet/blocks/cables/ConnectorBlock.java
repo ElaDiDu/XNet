@@ -446,8 +446,18 @@ public class ConnectorBlock extends GenericCableBlock implements ITileEntityProv
             tooltip.add(TextFormatting.BLUE + "machine that should be connected");
             tooltip.add(TextFormatting.BLUE + "to the network");
             boolean advanced = this == NetCableSetup.advancedConnectorBlock;
+
             int maxrf = advanced ? ConfigSetup.maxRfAdvancedConnector.get() : ConfigSetup.maxRfConnector.get();
+            int maxItem = advanced ? ConfigSetup.maxItemTransferAdvancedCached : ConfigSetup.maxItemTransferNormalCached;
+            int maxFluid = advanced ? ConfigSetup.maxFluidTransferAdvancedCached : ConfigSetup.maxFluidTransferNormalCached;
+
+            String maxItemText = maxItem == ConfigSetup.MAX_TRANSFER_UNLIMITED ? "Unlimited" : Integer.toString(maxItem);
+            String maxFluidText = maxFluid == ConfigSetup.MAX_TRANSFER_UNLIMITED ? "Unlimited" : maxFluid + " mB";
+
             tooltip.add(TextFormatting.GRAY + "" + TextFormatting.BOLD + "Max RF: " + TextFormatting.WHITE + maxrf);
+            tooltip.add(TextFormatting.GRAY + "" + TextFormatting.BOLD + "Max Item: " + TextFormatting.WHITE + maxItemText);
+            tooltip.add(TextFormatting.GRAY + "" + TextFormatting.BOLD + "Max Fluid: " + TextFormatting.WHITE + maxFluidText);
+
             if (advanced) {
                 tooltip.add(TextFormatting.GRAY + "Allow access to different sides");
                 tooltip.add(TextFormatting.GRAY + "Supports faster item transfer");
