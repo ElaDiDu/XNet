@@ -1,7 +1,7 @@
 1.8.19
 - Added 600 and 1200 timings to item/fluid/logic channels
 - Aligned Fluidchannel with itemchannel semantics
-  - Simple staggering to avoid silent failures when multiple simulations hit the same
+  - Simple staggering to avoid silent failures when multiple inserts hit the same
 fluidhandler on same tick.
 - Added JEI/HEI recipe fill support for item and fluid connector filters
     - Insert connectors add recipe inputs; extract connectors add recipe outputs
@@ -15,6 +15,8 @@ fluidhandler on same tick.
 - Prevented mouse-wheel count editing from accidentally clearing ghost filters
 - Disabled Mousetweak's WheelTweak for Controller. Repairs scrolling.
 - Search by connectornames in controllerGUI.
+- Config-entries: max limits for Normal/Advanced item and fluid connectors
+  - Print maxes on connector tooltip
 
 1.8.18:
 - Fixed Redstone Output Value not getting copy pasted
