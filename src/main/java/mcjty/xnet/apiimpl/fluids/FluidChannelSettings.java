@@ -343,9 +343,10 @@ public class FluidChannelSettings extends DefaultChannelSettings implements ICha
         FluidStack stack = tanks[idx].getContents();
         if (stack != null && tanks[idx].canDrain())
         {
-            // No need for a copy, it's already a copy from getContents().
-            stack.amount = extractAmount;
-            stack = handler.drain(stack, !simulate);
+            // Do not mutate getContents(); some handlers expose a live stack.
+            FluidStack request = stack.copy();
+            request.amount = Math.min(extractAmount, stack.amount);
+            stack = handler.drain(request, !simulate);
             if (stack != null && matcher.test(stack))
             {
                 return stack;

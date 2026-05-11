@@ -1,3 +1,6 @@
+1.8.20
+- Fix fluid duping with old fluidhandlers (IC2++)
+
 1.8.19
 - Added 600 and 1200 timings to item/fluid/logic channels
 - Aligned Fluidchannel with itemchannel semantics
