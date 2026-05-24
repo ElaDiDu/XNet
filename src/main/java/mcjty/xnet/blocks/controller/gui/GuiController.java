@@ -1197,15 +1197,11 @@ public class GuiController extends GenericXNetGuiContainer<TileEntityController>
                 .setLayoutHint(new PositionalLayout.PositionalHint(1, 19, 16, 16))
                 .setTooltips(
                         TextFormatting.GREEN + "Filter count controls",
-                        "",
-                        TextFormatting.YELLOW + "Mouse wheel",
-                        TextFormatting.WHITE + "  Wheel: +/- 1",
-                        TextFormatting.WHITE + "  Ctrl + wheel: double / halve",
-                        "",
-                        TextFormatting.YELLOW + "Click count edit",
-                        TextFormatting.WHITE + "  Shift/Alt + left click: + count",
-                        TextFormatting.WHITE + "  Shift/Alt + right click: - count",
-                        TextFormatting.WHITE + "  Add Ctrl: double / halve"
+                        TextFormatting.YELLOW + "Mouse wheel / click",
+                        TextFormatting.WHITE + "  Shift: +/- 10",
+                        TextFormatting.WHITE + "  Ctrl: +/- 100",
+                        TextFormatting.WHITE + "  Ctrl + Shift: +/- 1000",
+                        TextFormatting.WHITE + "  Alt: double / halve"
                 );
 
         Panel sidePanel = new Panel(mc, this)

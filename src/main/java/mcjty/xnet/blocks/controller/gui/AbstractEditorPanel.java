@@ -26,6 +26,12 @@ public abstract class AbstractEditorPanel implements IEditorGui {
     public static final int LEFTMARGIN = 3;
     public static final int TOPMARGIN = 3;
 
+    private static final int FILTER_COUNT_STEP_NORMAL = 1;
+    private static final int FILTER_COUNT_STEP_SHIFT = 10;
+    private static final int FILTER_COUNT_STEP_CTRL = 100;
+    private static final int FILTER_COUNT_STEP_CTRL_SHIFT = 1000;
+    private static final int MAX_FILTER_COUNT = Integer.MAX_VALUE;
+
     private final Panel panel;
     private final Minecraft mc;
     private final GuiController gui;
@@ -335,8 +341,8 @@ public abstract class AbstractEditorPanel implements IEditorGui {
         // Click with empty hand
         if (holding.isEmpty())
         {
-            // Require alt or shift to alter the stack instead of deleting it
-            if (Keyboard.isKeyDown(Keyboard.KEY_LMENU) || Keyboard.isKeyDown(Keyboard.KEY_RMENU) || Keyboard.isKeyDown(Keyboard.KEY_LSHIFT) || Keyboard.isKeyDown(Keyboard.KEY_RSHIFT))
+            // Require a modifier (keyboard button) to alter the stack instead of deleting it.
+            if (hasFilterCountEditModifier())
             {
                 if (button == 0)
                 {
@@ -432,19 +438,61 @@ public abstract class AbstractEditorPanel implements IEditorGui {
         blockRender.setRenderItem(stack);
     }
 
-    private void alterStackCount(ItemStack stack, boolean increase)
-    {
-        int newCount = stack.getCount();
-        if (Keyboard.isKeyDown(Keyboard.KEY_LCONTROL) || Keyboard.isKeyDown(Keyboard.KEY_RCONTROL))
-        {
-            if (increase) newCount *= 2;
-            else newCount /= 2;
+    private static boolean isKeyDown(int leftKey, int rightKey) {
+        return Keyboard.isKeyDown(leftKey) || Keyboard.isKeyDown(rightKey);
+    }
+
+    private static boolean isShiftDown() {
+        return isKeyDown(Keyboard.KEY_LSHIFT, Keyboard.KEY_RSHIFT);
+    }
+
+    private static boolean isControlDown() {
+        return isKeyDown(Keyboard.KEY_LCONTROL, Keyboard.KEY_RCONTROL);
+    }
+
+    private static boolean isAltDown() {
+        return isKeyDown(Keyboard.KEY_LMENU, Keyboard.KEY_RMENU);
+    }
+
+    private static boolean hasFilterCountEditModifier() {
+        return isAltDown() || isShiftDown() || isControlDown();
+    }
+
+    private static int getFilterCountStep() {
+        boolean shift = isShiftDown();
+        boolean control = isControlDown();
+
+        if (shift && control) {
+            return FILTER_COUNT_STEP_CTRL_SHIFT;
+        } else if (control) {
+            return FILTER_COUNT_STEP_CTRL;
+        } else if (shift) {
+            return FILTER_COUNT_STEP_SHIFT;
+        } else {
+            return FILTER_COUNT_STEP_NORMAL;
         }
-        else
-        {
-            if (increase) newCount++;
-            else newCount--;
+    }
+
+    private void alterStackCount(ItemStack stack, boolean increase) {
+        long newCount = stack.getCount();
+
+        if (isAltDown()) {
+            if (increase) {
+                newCount *= 2L;
+            } else {
+                newCount /= 2L;
+            }
+        } else {
+            int step = getFilterCountStep();
+            newCount += increase ? step : -step;
         }
-        stack.setCount(newCount);
+
+        if (newCount > MAX_FILTER_COUNT) {
+            newCount = MAX_FILTER_COUNT;
+        } else if (newCount < 0) {
+            newCount = 0;
+        }
+
+        stack.setCount((int) newCount);
     }
 }
