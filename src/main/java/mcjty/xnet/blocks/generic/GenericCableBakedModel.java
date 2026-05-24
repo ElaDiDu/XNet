@@ -31,9 +31,6 @@ public class GenericCableBakedModel implements IBakedModel {
     public static final ModelResourceLocation modelConnector = new ModelResourceLocation(XNet.MODID + ":" + ConnectorBlock.CONNECTOR);
     public static final ModelResourceLocation modelCable = new ModelResourceLocation(XNet.MODID + ":" + NetCableBlock.NETCABLE);
 
-    private TextureAtlasSprite spriteCable;
-    private TextureAtlasSprite spriteConnector;
-
     public static class CableTextures {
         TextureAtlasSprite spriteConnector;
         TextureAtlasSprite spriteAdvancedConnector;
@@ -207,15 +204,16 @@ public class GenericCableBakedModel implements IBakedModel {
         CableColor cableColor = extendedBlockState.getValue(GenericCableBlock.COLOR);
         int index = cableColor.ordinal();
 
+        GenericCableBlock block = (GenericCableBlock) state.getBlock();
+
         initTextures();
         CableTextures ct = cableTextures[index];
-        spriteCable = ct.spriteNormalCable;
-        GenericCableBlock block = (GenericCableBlock) state.getBlock();
-        if (block.isAdvancedConnector()) {
-            spriteConnector = ct.spriteAdvancedConnector;
-        } else {
-            spriteConnector = ct.spriteConnector;
-        }
+
+        TextureAtlasSprite spriteCable = ct.spriteNormalCable;
+        TextureAtlasSprite spriteConnector = block.isAdvancedConnector()
+                ? ct.spriteAdvancedConnector
+                : ct.spriteConnector;
+
         Function<CablePatterns.SpriteIdx, TextureAtlasSprite> getSprite = idx -> getSpriteNormal(idx, index);
         float hilight = 1.0f;
         if (block instanceof ConnectorBlock) {
@@ -394,7 +392,11 @@ public class GenericCableBakedModel implements IBakedModel {
 
     @Override
     public TextureAtlasSprite getParticleTexture() {
-        return spriteCable == null ? Minecraft.getMinecraft().getTextureMapBlocks().getMissingSprite() : spriteCable;
+        initTextures();
+        if (cableTextures == null || cableTextures.length == 0 || cableTextures[0] == null) {
+            return Minecraft.getMinecraft().getTextureMapBlocks().getMissingSprite();
+        }
+        return cableTextures[0].spriteNormalCable;
     }
 
     @Override
@@ -406,5 +408,4 @@ public class GenericCableBakedModel implements IBakedModel {
     public ItemOverrideList getOverrides() {
         return ItemOverrideList.NONE;
     }
-
 }
