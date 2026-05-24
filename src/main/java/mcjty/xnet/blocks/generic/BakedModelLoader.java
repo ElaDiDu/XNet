@@ -46,6 +46,6 @@ public class BakedModelLoader implements ICustomModelLoader {
 
     @Override
     public void onResourceManagerReload(IResourceManager resourceManager) {
-
+        GenericCableBakedModel.resetTextureCache();
     }
 }

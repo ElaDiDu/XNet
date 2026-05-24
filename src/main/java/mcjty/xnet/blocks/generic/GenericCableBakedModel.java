@@ -399,6 +399,11 @@ public class GenericCableBakedModel implements IBakedModel {
         return cableTextures[0].spriteNormalCable;
     }
 
+    public static void resetTextureCache() {
+        cableTextures = null;
+        spriteSide = null;
+    }
+
     @Override
     public ItemCameraTransforms getItemCameraTransforms() {
         return ItemCameraTransforms.DEFAULT;
