@@ -1,3 +1,14 @@
+1.8.21
+
+- Fixed cable rendering issues where cables could show the wrong color
+- Fixed resource reload (F3 + T) should work correctly
+- Improved item filter count editing:
+  - Shift: +/-10
+  - Ctrl: +/-100
+  - Ctrl + Shift: +/-1000
+  - Alt: double / halve
+- Updated the filter help tooltip with the new count controls
+
 1.8.20
 - Fix fluid duping with old fluidhandlers (IC2++)
 
