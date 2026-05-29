@@ -22,7 +22,6 @@ import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import java.util.HashMap;
 import java.util.Map;
-import java.util.function.BiPredicate;
 
 import static mcjty.xnet.api.channels.Color.COLORS;
 import static mcjty.xnet.api.channels.Color.OFF;
@@ -45,15 +44,14 @@ public class Sensor {
     }
 
     public enum Operator {
-        EQUAL("=", (i1, i2) -> i1 == i2),
-        NOTEQUAL("!=", (i1, i2) -> i1 != i2),
-        LESS("<", (i1, i2) -> i1 < i2),
-        GREATER(">", (i1, i2) -> i1 > i2),
-        LESSOREQUAL("<=", (i1, i2) -> i1 <= i2),
-        GREATOROREQUAL(">=", (i1, i2) -> i1 >= i2);
+        EQUAL("="),
+        NOTEQUAL("!="),
+        LESS("<"),
+        GREATER(">"),
+        LESSOREQUAL("<="),
+        GREATOROREQUAL(">=");
 
         private final String code;
-        private final BiPredicate<Integer, Integer> matcher;
 
         private static final Map<String, Operator> OPERATOR_MAP = new HashMap<>();
 
@@ -63,9 +61,8 @@ public class Sensor {
             }
         }
 
-        Operator(String code, BiPredicate<Integer, Integer> matcher) {
+        Operator(String code) {
             this.code = code;
-            this.matcher = matcher;
         }
 
         public String getCode() {
@@ -73,7 +70,21 @@ public class Sensor {
         }
 
         public boolean match(int i1, int i2) {
-            return matcher.test(i1, i2);
+            switch (this) {
+                case EQUAL:
+                    return i1 == i2;
+                case NOTEQUAL:
+                    return i1 != i2;
+                case LESS:
+                    return i1 < i2;
+                case GREATER:
+                    return i1 > i2;
+                case LESSOREQUAL:
+                    return i1 <= i2;
+                case GREATOROREQUAL:
+                    return i1 >= i2;
+            }
+            return false;
         }
 
         @Override
