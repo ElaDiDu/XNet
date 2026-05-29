@@ -1,5 +1,5 @@
 1.8.21
-
+- Fixed logic sensor Equality / inEquality not comparing correctly
 - Fixed cable rendering issues where cables could show the wrong color
 - Fixed resource reload (F3 + T) should work correctly
 - Improved item filter count editing:
