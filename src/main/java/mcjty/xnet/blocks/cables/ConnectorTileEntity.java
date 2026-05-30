@@ -18,6 +18,7 @@ import net.minecraft.entity.player.EntityPlayerMP;
 import net.minecraft.nbt.NBTTagCompound;
 import net.minecraft.network.NetworkManager;
 import net.minecraft.network.play.server.SPacketUpdateTileEntity;
+import net.minecraft.tileentity.TileEntity;
 import net.minecraft.util.EnumFacing;
 import net.minecraft.util.math.BlockPos;
 import net.minecraftforge.common.capabilities.Capability;
@@ -43,7 +44,8 @@ public class ConnectorTileEntity extends GenericTileEntity implements IFacadeSup
 
     private byte enabled = 0x3f;
 
-    private Block[] cachedNeighbours = new Block[EnumFacing.VALUES.length];
+    private final Block[] cachedNeighbours = new Block[EnumFacing.VALUES.length];
+    private final Class<?>[] cachedNeighbourTileClasses = new Class<?>[EnumFacing.VALUES.length];
 
     public static final Key<String> VALUE_NAME = new Key<>("name", Type.STRING);
 
@@ -134,16 +136,72 @@ public class ConnectorTileEntity extends GenericTileEntity implements IFacadeSup
         return pulseCounter;
     }
 
-    // Optimization to only increase the network if there is an actual block change
+    private static Class<?> getTileClass(TileEntity tile) {
+        return tile == null ? null : tile.getClass();
+    }
+
+    private static boolean sameTileClass(Class<?> oldTileClass, Class<?> newTileClass) {
+        return oldTileClass != null && oldTileClass == newTileClass;
+    }
+
+    private static boolean isXNetBlock(Block block) {
+        if (block == null || block.getRegistryName() == null) {
+            return false;
+        }
+
+        return block.getRegistryName().toString().startsWith("xnet:");
+    }
+
+    private static boolean shouldMarkNetworkDirty(Block oldBlock,
+                                                  Block newBlock,
+                                                  Class<?> oldTileClass,
+                                                  Class<?> newTileClass) {
+        if (oldBlock == newBlock && oldTileClass == newTileClass) {
+            return false;
+        }
+
+        // Never suppress XNet's own topology blocks. Cable/connector/controller/router
+        // changes must keep the old conservative behavior.
+        if (isXNetBlock(oldBlock) || isXNetBlock(newBlock)) {
+            return true;
+        }
+
+        // Suppress common modded active/idle block swaps when the actual tile type
+        // behind the connector did not change.
+        if (oldBlock != newBlock && sameTileClass(oldTileClass, newTileClass)) {
+            return false;
+        }
+
+        return true;
+    }
+
+    // Optimization to only increase the network version if there is an actual connector-relevant change.
     public void possiblyMarkNetworkDirty(@Nonnull BlockPos neighbor) {
+        if (world == null || world.isRemote) {
+            return;
+        }
+
         for (EnumFacing facing : EnumFacing.VALUES) {
             if (getPos().offset(facing).equals(neighbor)) {
-                Block newblock = world.getBlockState(neighbor).getBlock();
-                if (newblock != cachedNeighbours[facing.ordinal()]) {
-                    cachedNeighbours[facing.ordinal()] = newblock;
-                    WorldBlob worldBlob = XNetBlobData.getBlobData(world).getWorldBlob(world);
-                    worldBlob.markNetworkDirty(worldBlob.getNetworkAt(getPos()));
+                int side = facing.ordinal();
+
+                IBlockState newState = world.getBlockState(neighbor);
+                Block newBlock = newState.getBlock();
+                Block oldBlock = cachedNeighbours[side];
+
+                TileEntity newTile = world.getTileEntity(neighbor);
+                Class<?> newTileClass = getTileClass(newTile);
+                Class<?> oldTileClass = cachedNeighbourTileClasses[side];
+
+                cachedNeighbours[side] = newBlock;
+                cachedNeighbourTileClasses[side] = newTileClass;
+
+                if (!shouldMarkNetworkDirty(oldBlock, newBlock, oldTileClass, newTileClass)) {
+                    return;
                 }
+
+                WorldBlob worldBlob = XNetBlobData.getBlobData(world).getWorldBlob(world);
+                worldBlob.markNetworkDirty(worldBlob.getNetworkAt(getPos()));
                 return;
             }
         }
