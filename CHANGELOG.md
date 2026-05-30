@@ -1,3 +1,6 @@
+1.8.21
+- Avoid connector network dirty on same-tile block swaps
+
 1.8.20
 - Fix fluid duping with old fluidhandlers (IC2++)
 
