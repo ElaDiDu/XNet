@@ -422,6 +422,26 @@ public class GuiController extends GenericXNetGuiContainer<TileEntityController>
     private void selectConnectorEditor(SidedPos sidedPos, int finalI) {
         editingConnector = sidedPos;
         selectChannelEditor(finalI);
+
+        int line = findConnectorListIndex(sidedPos);
+        if (line >= 0 && line < connectorList.getChildCount()) {
+            connectorList.setSelected(line);
+        }
+    }
+
+    private void restoreConnectorListSelectionIfCleared() {
+        if (connectorList == null || editingConnector == null) {
+            return;
+        }
+
+        if (connectorList.getSelected() != -1) {
+            return;
+        }
+
+        int line = findConnectorListIndex(editingConnector);
+        if (line >= 0 && line < connectorList.getChildCount()) {
+            connectorList.setSelected(line);
+        }
     }
 
     private void refreshChannelEditor() {
@@ -835,6 +855,7 @@ public class GuiController extends GenericXNetGuiContainer<TileEntityController>
     protected void drawGuiContainerBackgroundLayer(float v, int x1, int x2) {
         requestListsIfNeeded();
         populateList();
+        restoreConnectorListSelectionIfCleared();
         refreshChannelEditor();
         refreshConnectorEditor();
         if (listsReady() && copyConnector != null && editingChannel != -1) {
