@@ -8,6 +8,7 @@
   - Ctrl + Shift: +/-1000
   - Alt: double / halve
 - Updated the filter help tooltip with the new count controls
+- Widen the inputfields in fluidconnectorsettings (where there is room)
 
 1.8.20
 - Fix fluid duping with old fluidhandlers (IC2++)
