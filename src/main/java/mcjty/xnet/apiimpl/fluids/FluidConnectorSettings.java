@@ -207,12 +207,12 @@ public class FluidConnectorSettings extends AbstractConnectorSettings {
                     .toggleText(TAG_BLACKLIST, "Enable blacklist mode", "BL", blacklist).shift(2)
                     .shift(20)
                     .label("Min")
-                    .integer(TAG_MINMAX, "Keep this amount of|fluid in tank", minmax, 36)
+                    .integer(TAG_MINMAX, "Keep this amount of|fluid in tank", minmax, 68)
                     .nl();
         } else {
             gui.nl()
                     .choices(TAG_MODE, "Insert or extract mode", fluidMode, FluidMode.values())
-                    .integer(TAG_RATE, "Fluid insertion rate|per operation|(empty = max)", rate, 36)
+                    .integer(TAG_RATE, "Fluid insertion rate|per operation|(empty = max)", rate, 54)
                     .choices(TAG_SPEED, "Number of ticks for each operation", Integer.toString(speed * 10), speeds)
                     .nl()
 
@@ -222,7 +222,7 @@ public class FluidConnectorSettings extends AbstractConnectorSettings {
                     .toggleText(TAG_BLACKLIST, "Enable blacklist mode", "BL", blacklist).shift(2)
                     .shift(20)
                     .label("Max")
-                    .integer(TAG_MINMAX, "Disable insertion if|fluid level is too high", minmax, 36)
+                    .integer(TAG_MINMAX, "Disable insertion if|fluid level is too high", minmax, 66)
                     .nl();
         }
 
