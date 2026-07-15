@@ -7,6 +7,7 @@
   - Ctrl: +/-100
   - Ctrl + Shift: +/-1000
   - Alt: double / halve
+  - This means the only way to +/- 1 is via scroll wheel
 - Updated the filter help tooltip with the new count controls
 - Widen the inputfields in fluidconnectorsettings (where there is room)
 
