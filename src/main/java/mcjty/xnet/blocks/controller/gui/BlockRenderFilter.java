@@ -1,5 +1,6 @@
 package mcjty.xnet.blocks.controller.gui;
 
+import mcjty.lib.client.RenderHelper;
 import mcjty.lib.gui.widgets.BlockRender;
 import mcjty.lib.gui.widgets.Widget;
 import net.minecraft.client.Minecraft;
@@ -59,5 +60,39 @@ public class BlockRenderFilter extends BlockRender
 
         onClick.accept(button);
         return this;
+    }
+
+    // draw filtered items behind held items
+    @Override
+    public void draw(int x, int y)
+    {
+        if (!visible)
+        {
+            return;
+        }
+        drawBackground(x, y);
+        Object renderItem = getRenderItem();
+        if (renderItem == null)
+        {
+            return;
+        }
+
+        float previousZLevel = mc.getRenderItem().zLevel;
+        try
+        {
+            RenderHelper.renderObject(
+                    mc,
+                    mc.getRenderItem(),
+                    x + bounds.x + getOffsetX(),
+                    y + bounds.y + getOffsetY(),
+                    renderItem,
+                    false,
+                    100.0F
+            );
+        }
+        finally
+        {
+            mc.getRenderItem().zLevel = previousZLevel;
+        }
     }
 }
