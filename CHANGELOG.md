@@ -1,3 +1,7 @@
+1.8.22
+- Centered controller popup messages across GUI scales.
+- Fixed filter items rendering above the cursor-held stack.
+
 1.8.21
 - Fixed logic sensor Equality / inEquality not comparing correctly
 - Fixed cable rendering issues where cables could show the wrong color
