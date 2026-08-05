@@ -344,14 +344,14 @@ public class GuiController extends GenericXNetGuiContainer<TileEntityController>
                 if (getSelectedChannel() != -1) {
                     copyConnector();
                 } else {
-                    showMessage(mc, this, getWindowManager(), 50, 50, TextFormatting.RED + "Nothing selected!");
+                    showMessage(mc, this, getWindowManager(), TextFormatting.RED + "Nothing selected!");
                 }
                 return true;
             } else if (keyCode == Keyboard.KEY_V) {
                 if (getSelectedChannel() != -1) {
                     pasteConnector();
                 } else {
-                    showMessage(mc, this, getWindowManager(), 50, 50, TextFormatting.RED + "Nothing selected!");
+                    showMessage(mc, this, getWindowManager(), TextFormatting.RED + "Nothing selected!");
                 }
                 return true;
             }
@@ -391,7 +391,7 @@ public class GuiController extends GenericXNetGuiContainer<TileEntityController>
     }
 
     private void removeChannel() {
-        showMessage(mc, this, getWindowManager(), 50, 50, TextFormatting.RED + "Really remove channel " + (getSelectedChannel() + 1) + "?", parent -> {
+        showMessage(mc, this, getWindowManager(), TextFormatting.RED + "Really remove channel " + (getSelectedChannel() + 1) + "?", parent -> {
             sendServerCommand(XNetMessages.INSTANCE, TileEntityController.CMD_REMOVECHANNEL,
                     TypedMap.builder()
                             .put(PARAM_INDEX, getSelectedChannel())
@@ -513,16 +513,22 @@ public class GuiController extends GenericXNetGuiContainer<TileEntityController>
         }
     }
 
-    public static void showMessage(Minecraft mc, Gui gui, WindowManager windowManager, int x, int y, String title) {
-        showMessage(mc, gui, windowManager, x, y, title, null);
+    public static void showMessage(Minecraft mc, Gui gui, WindowManager windowManager, String title) {
+        showMessage(mc, gui, windowManager, title, null);
     }
 
-    public static void showMessage(Minecraft mc, Gui gui, WindowManager windowManager, int x, int y, String title, ButtonEvent okEvent) {
+    public static void showMessage(Minecraft mc, Gui gui, WindowManager windowManager, String title, ButtonEvent okEvent) {
+        final int popupWidth = 200;
+        final int popupHeight = 40;
         Panel ask = new Panel(mc, gui)
                 .setLayout(new VerticalLayout())
                 .setFilledBackground(0xff666666, 0xffaaaaaa)
                 .setFilledRectThickness(1);
-        ask.setBounds(new Rectangle(x, y, 200, 40));
+        GuiController controller = (GuiController) gui;
+        int popupX = controller.guiLeft + (controller.xSize - popupWidth) / 2;
+        int popupY = controller.guiTop + (controller.ySize - popupHeight) / 2 - 20;
+        ask.setBounds(new Rectangle(popupX, popupY, popupWidth, popupHeight));
+
         Window askWindow = windowManager.createModalWindow(ask);
         ask.addChild(new Label(mc, gui).setText(title));
         Panel buttons = new Panel(mc, gui).setLayout(new HorizontalLayout()).setDesiredWidth(100).setDesiredHeight(18);
@@ -555,7 +561,7 @@ public class GuiController extends GenericXNetGuiContainer<TileEntityController>
 
 
     private void copyChannel() {
-        showMessage(mc, this, getWindowManager(), 50, 50, TextFormatting.GREEN + "Copied channel");
+        showMessage(mc, this, getWindowManager(), TextFormatting.GREEN + "Copied channel");
         sendServerCommand(XNetMessages.INSTANCE, TileEntityController.CMD_COPYCHANNEL,
                 TypedMap.builder()
                         .put(PARAM_INDEX, getSelectedChannel())
@@ -565,7 +571,7 @@ public class GuiController extends GenericXNetGuiContainer<TileEntityController>
     public static void showError(String error) {
         if (openController != null) {
             Minecraft mc = Minecraft.getMinecraft();
-            showMessage(mc, openController, openController.getWindowManager(), 50, 50, TextFormatting.RED + error);
+            showMessage(mc, openController, openController.getWindowManager(), TextFormatting.RED + error);
         }
     }
 
@@ -584,7 +590,7 @@ public class GuiController extends GenericXNetGuiContainer<TileEntityController>
             Clipboard clipboard = Toolkit.getDefaultToolkit().getSystemClipboard();
             String json = (String) clipboard.getData(DataFlavor.stringFlavor);
             if (json.length() > 26000) {
-                showMessage(mc, this, getWindowManager(), 50, 50, TextFormatting.RED + "Clipboard too large!");
+                showMessage(mc, this, getWindowManager(), TextFormatting.RED + "Clipboard too large!");
                 return;
             }
             JsonParser parser = new JsonParser();
@@ -592,7 +598,7 @@ public class GuiController extends GenericXNetGuiContainer<TileEntityController>
             String type = root.get("type").getAsString();
             IChannelType channelType = XNet.xNetApi.findType(type);
             if (channelType == null) {
-                showMessage(mc, this, getWindowManager(), 50, 50, TextFormatting.RED + "Unsupported channel type: " + type + "!");
+                showMessage(mc, this, getWindowManager(), TextFormatting.RED + "Unsupported channel type: " + type + "!");
                 return;
             }
             sendServerCommand(XNetMessages.INSTANCE, TileEntityController.CMD_PASTECONNECTOR,
@@ -609,9 +615,9 @@ public class GuiController extends GenericXNetGuiContainer<TileEntityController>
             }
             refresh();
         } catch (UnsupportedFlavorException e) {
-            showMessage(mc, this, getWindowManager(), 50, 50, TextFormatting.RED + "Clipboard does not contain connector!");
+            showMessage(mc, this, getWindowManager(), TextFormatting.RED + "Clipboard does not contain connector!");
         } catch (Exception e) {
-            showMessage(mc, this, getWindowManager(), 50, 50, TextFormatting.RED + "Error reading from clipboard!");
+            showMessage(mc, this, getWindowManager(), TextFormatting.RED + "Error reading from clipboard!");
         }
     }
 
@@ -620,7 +626,7 @@ public class GuiController extends GenericXNetGuiContainer<TileEntityController>
             Clipboard clipboard = Toolkit.getDefaultToolkit().getSystemClipboard();
             String json = (String) clipboard.getData(DataFlavor.stringFlavor);
             if (json.length() > 26000) {
-                showMessage(mc, this, getWindowManager(), 50, 50, TextFormatting.RED + "Clipboard too large!");
+                showMessage(mc, this, getWindowManager(), TextFormatting.RED + "Clipboard too large!");
                 return;
             }
             JsonParser parser = new JsonParser();
@@ -628,7 +634,7 @@ public class GuiController extends GenericXNetGuiContainer<TileEntityController>
             String type = root.get("type").getAsString();
             IChannelType channelType = XNet.xNetApi.findType(type);
             if (channelType == null) {
-                showMessage(mc, this, getWindowManager(), 50, 50, TextFormatting.RED + "Unsupported channel type: " + type + "!");
+                showMessage(mc, this, getWindowManager(), TextFormatting.RED + "Unsupported channel type: " + type + "!");
                 return;
             }
             sendServerCommand(XNetMessages.INSTANCE, TileEntityController.CMD_PASTECHANNEL,
@@ -638,9 +644,9 @@ public class GuiController extends GenericXNetGuiContainer<TileEntityController>
                             .build());
             refresh();
         } catch (UnsupportedFlavorException e) {
-            showMessage(mc, this, getWindowManager(), 50, 50, TextFormatting.RED + "Clipboard does not contain channel!");
+            showMessage(mc, this, getWindowManager(), TextFormatting.RED + "Clipboard does not contain channel!");
         } catch (Exception e) {
-            showMessage(mc, this, getWindowManager(), 50, 50, TextFormatting.RED + "Error reading from clipboard!");
+            showMessage(mc, this, getWindowManager(), TextFormatting.RED + "Error reading from clipboard!");
         }
     }
 
