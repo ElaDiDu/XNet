@@ -93,7 +93,7 @@ public class LogicConnectorSettings extends AbstractConnectorSettings {
         return null;
     }
 
-    private static Set<String> TAGS = ImmutableSet.of(TAG_REDSTONE_OUT, TAG_MODE, TAG_RS, TAG_COLOR+"0", TAG_COLOR+"1", TAG_COLOR+"2", TAG_COLOR+"3");
+    private static Set<String> TAGS = ImmutableSet.of(TAG_REDSTONE_OUT, TAG_MODE, TAG_RS, TAG_COLOR_OPERATOR, TAG_COLOR+"0", TAG_COLOR+"1", TAG_COLOR+"2", TAG_COLOR+"3");
 
     @Override
     public boolean isEnabled(String tag) {
@@ -132,6 +132,7 @@ public class LogicConnectorSettings extends AbstractConnectorSettings {
         }
         sideGui(gui);
         colorsGui(gui);
+        colorOperatorGui(gui);
         redstoneGui(gui);
         gui.nl()
                 .choices(TAG_MODE, "Sensor or Output mode", logicMode, LogicMode.values())

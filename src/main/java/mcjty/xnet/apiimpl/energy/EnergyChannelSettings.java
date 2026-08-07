@@ -80,7 +80,7 @@ public class EnergyChannelSettings extends DefaultChannelSettings implements ICh
                 continue;
             if (checkRedstone(world, settings, connectorPos))
                 continue;
-            if (!context.matchColor(settings.getColorsMask()))
+            if (!settings.matchesColor(context))
                 continue;
 
             TileEntity te = world.getTileEntity(energyPos);
@@ -143,7 +143,7 @@ public class EnergyChannelSettings extends DefaultChannelSettings implements ICh
                 continue;
             if (checkRedstone(world, insertSettings, consumerPos))
                 continue;
-            if (!context.matchColor(insertSettings.getColorsMask()))
+            if (!insertSettings.matchesColor(context))
                 continue;
 
             EnumFacing side = entry.getKey().getSide();
