@@ -154,7 +154,7 @@ public class FluidChannelSettings extends DefaultChannelSettings implements ICha
                     continue;
                 if (checkRedstone(world, settings, extractorPos))
                     continue;
-                if (!context.matchColor(settings.getColorsMask()))
+                if (!settings.matchesColor(context))
                     continue;
 
                 TileEntity te = world.getTileEntity(pos);
@@ -413,7 +413,7 @@ public class FluidChannelSettings extends DefaultChannelSettings implements ICha
                 continue;
             if (checkRedstone(world, insertSettings, consumerPos))
                 continue;
-            if (!context.matchColor(insertSettings.getColorsMask()))
+            if (!insertSettings.matchesColor(context))
                 continue;
 
             EnumFacing side = entry.getKey().getSide();
@@ -510,7 +510,7 @@ public class FluidChannelSettings extends DefaultChannelSettings implements ICha
                     continue;
                 if (checkRedstone(world, settings, consumerPos))
                     continue;
-                if (!context.matchColor(settings.getColorsMask()))
+                if (!settings.matchesColor(context))
                     continue;
 
 

@@ -96,7 +96,7 @@ public class LogicChannelSettings extends DefaultChannelSettings implements ICha
                 boolean sense = true;
 
                 sense = !checkRedstone(world, settings, connectorPos);
-                if (sense && !context.matchColor(settings.getColorsMask())) {
+                if (sense && !settings.matchesColor(context)) {
                     sense = false;
                 }
 
@@ -134,7 +134,7 @@ public class LogicChannelSettings extends DefaultChannelSettings implements ICha
                     int powerOut;
                     if (checkRedstone(world, settings, connectorPos)) {
                         powerOut = 0;
-                    } else if (!context.matchColor(settings.getColorsMask())) {
+                    } else if (!settings.matchesColor(context)) {
                         powerOut = 0;
                     } else {
                         powerOut = settings.getRedstoneOut() == null ? 0 : settings.getRedstoneOut();
