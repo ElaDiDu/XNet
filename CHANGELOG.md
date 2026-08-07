@@ -1,6 +1,7 @@
 1.8.22
 - Centered controller popup messages across GUI scales.
 - Fixed filter items rendering above the cursor-held stack.
+- Added Logic Operators to connectorsettings colormask: AND, OR, NAND, NOR
 
 1.8.21
 - Fixed logic sensor Equality / inEquality not comparing correctly
