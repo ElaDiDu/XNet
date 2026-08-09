@@ -100,7 +100,8 @@ public class GuiController extends GenericXNetGuiContainer<TileEntityController>
     private Panel connectorEditPanel;
 
     private ToggleButton channelButtons[] = new ToggleButton[MAX_CHANNELS];
-
+    private final String[] channelTooltipNames = new String[MAX_CHANNELS];
+    private TextField channelNameField = null;
     private SidedPos editingConnector = null;
     private int editingChannel = -1;
 
@@ -279,7 +280,10 @@ public class GuiController extends GenericXNetGuiContainer<TileEntityController>
         for (int i = 0 ; i < MAX_CHANNELS ; i++) {
             String name = "channel" + (i+1);
             channelButtons[i] = window.findChild(name);
+            channelButtons[i].setTooltips("Channel " + (i+1));
+            channelTooltipNames[i] = "";
         }
+        channelNameField = null;
 
         long currentRF = GenericEnergyStorageTileEntity.getCurrentRF();
         energyBar = window.findChild("energybar");
@@ -463,9 +467,9 @@ public class GuiController extends GenericXNetGuiContainer<TileEntityController>
         if (editingChannel != -1 && showingChannel != editingChannel) {
             showingChannel = editingChannel;
             channelButtons[editingChannel].setPressed(true);
-
             copyConnector = null;
             channelEditPanel.removeChildren();
+            channelNameField = null;
             if (channelButtons[editingChannel].isPressed()) {
                 ChannelClientInfo info = fromServer_channels.get(editingChannel);
                 if (info != null) {
@@ -475,6 +479,7 @@ public class GuiController extends GenericXNetGuiContainer<TileEntityController>
                             .toggle(TAG_ENABLED, "Enable processing on this channel", info.isEnabled())
                             .shift(5)
                             .text(TAG_NAME, "Channel name", info.getChannelName(), 65);
+                    channelNameField = (TextField) editor.getComponent(TAG_NAME);
                     info.getChannelSettings().createGui(editor);
 
                     Button remove = new Button(mc, this).setText("x")
@@ -522,6 +527,7 @@ public class GuiController extends GenericXNetGuiContainer<TileEntityController>
         } else if (showingChannel != -1 && editingChannel == -1) {
             showingChannel = -1;
             channelEditPanel.removeChildren();
+            channelNameField = null;
         }
     }
 
@@ -733,6 +739,26 @@ public class GuiController extends GenericXNetGuiContainer<TileEntityController>
             listDirty = 10;
             showingChannel = -1;
             showingConnector = null;
+        }
+    }
+
+    private void refreshChannelButtonTooltips() {
+        for (int i = 0; i < MAX_CHANNELS; i++) {
+            String name;
+            if (i == editingChannel && channelNameField != null) {
+                name = channelNameField.getText();
+            } else {
+                if (fromServer_channels == null) {
+                    continue;
+                }
+                ChannelClientInfo info = fromServer_channels.get(i);
+                name = info == null ? "" : info.getChannelName();
+            }
+            if (name == null) {name = "";}
+            if (!name.equals(channelTooltipNames[i])) {
+                channelButtons[i].setTooltips(name.isEmpty() ? "Channel " + (i + 1) : "Channel " + (i + 1) + ": " + name);
+                channelTooltipNames[i] = name;
+            }
         }
     }
 
@@ -1286,6 +1312,7 @@ public class GuiController extends GenericXNetGuiContainer<TileEntityController>
                 }
             }
         }
+        refreshChannelButtonTooltips();
         drawWindow();
         int channel = getSelectedChannel();
         if (channel != -1) {
