@@ -12,12 +12,11 @@ import mcjty.xnet.network.XNetMessages;
 import net.minecraft.client.Minecraft;
 import net.minecraft.item.ItemStack;
 import net.minecraft.util.ResourceLocation;
+import net.minecraft.util.text.TextFormatting;
 import org.apache.commons.lang3.StringUtils;
 import org.lwjgl.input.Keyboard;
 
-import java.util.HashMap;
-import java.util.Map;
-import java.util.Objects;
+import java.util.*;
 
 public abstract class AbstractEditorPanel implements IEditorGui {
 
@@ -107,6 +106,48 @@ public abstract class AbstractEditorPanel implements IEditorGui {
         return StringUtils.split(tooltip, '|');
     }
 
+    private TextField createEditorTextField(String tooltip, String value) {
+        TextField text = new EditorTextField(mc, gui).setText(value == null ? "" : value);
+        String[] tooltips = parseTooltips(tooltip);
+        if (tooltips != null) {
+            text.setTooltips(tooltips);
+        }
+        return text;
+    }
+
+    private static final class EditorTextField extends TextField {
+
+        private String cachedValue;
+        private List<String> cachedNormalTooltips;
+        private List<String> shiftTooltips;
+
+        private EditorTextField(Minecraft mc, GuiController gui) {
+            super(mc, gui);
+        }
+
+        @Override
+        public List<String> getTooltips() {
+            List<String> normalTooltips = super.getTooltips();
+            if (!Keyboard.isKeyDown(Keyboard.KEY_LSHIFT)) {
+                return normalTooltips;
+            }
+            String value = getText();
+            if (shiftTooltips == null || normalTooltips != cachedNormalTooltips || !value.equals(cachedValue)) {
+                int normalSize = normalTooltips == null ? 0 : normalTooltips.size();
+                shiftTooltips = new ArrayList<>(normalSize + 1);
+                if (normalTooltips != null) {
+                    shiftTooltips.addAll(normalTooltips);
+                }
+                if (!value.isEmpty()) {
+                    shiftTooltips.add(TextFormatting.GRAY + value);
+                }
+                cachedValue = value;
+                cachedNormalTooltips = normalTooltips;
+            }
+            return shiftTooltips;
+        }
+    }
+
     @Override
     public IEditorGui label(String txt) {
         int w = mc.fontRenderer.getStringWidth(txt)+5;
@@ -122,8 +163,7 @@ public abstract class AbstractEditorPanel implements IEditorGui {
     public IEditorGui text(String tag, String tooltip, String value, int width) {
         int w = width;
         fitWidth(w);
-        TextField text = new TextField(mc, gui).setText(value)
-                .setTooltips(parseTooltips(tooltip))
+        TextField text = createEditorTextField(tooltip, value)
                 .setLayoutHint(new PositionalLayout.PositionalHint(x, y, w, 14));
         data.put(tag, value);
         text.addTextEnterEvent((parent, newText) -> update(tag, newText));
@@ -158,8 +198,7 @@ public abstract class AbstractEditorPanel implements IEditorGui {
     public IEditorGui integer(String tag, String tooltip, Integer value, int width, Integer maximum) {
         int w = width;
         fitWidth(w);
-        TextField text = new TextField(mc, gui).setText(value == null ? "" : value.toString())
-                .setTooltips(parseTooltips(tooltip))
+        TextField text = createEditorTextField(tooltip, value == null ? "" : value.toString())
                 .setLayoutHint(new PositionalLayout.PositionalHint(x, y, w, 14));
         data.put(tag, value);
         text.addTextEnterEvent((parent, newText) -> update(tag, parseInt(newText, maximum)));
@@ -185,8 +224,7 @@ public abstract class AbstractEditorPanel implements IEditorGui {
     public IEditorGui real(String tag, String tooltip, Double value, int width) {
         int w = width;
         fitWidth(w);
-        TextField text = new TextField(mc, gui).setText(value == null ? "" : value.toString())
-                .setTooltips(parseTooltips(tooltip))
+        TextField text = createEditorTextField(tooltip, value == null ? "" : value.toString())
                 .setLayoutHint(new PositionalLayout.PositionalHint(x, y, w, 14));
         data.put(tag, value);
         text.addTextEnterEvent((parent, newText) -> update(tag, parseDouble(newText)));
