@@ -1,3 +1,6 @@
+1.8.23
+- Added advanced search prefixes for filters, channels and logical colors
+
 1.8.22
 - Centered controller popup messages across GUI scales.
 - Fixed filter items rendering above the cursor-held stack.

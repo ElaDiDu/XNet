@@ -348,6 +348,9 @@ public class GuiController extends GenericXNetGuiContainer<TileEntityController>
 
 
     private boolean handleClipboard(int keyCode) {
+        if (window.getTextFocus() instanceof TextField) {
+            return false;
+        }
         if (Keyboard.isKeyDown(Keyboard.KEY_LCONTROL) || Keyboard.isKeyDown(Keyboard.KEY_RCONTROL)) {
             if (keyCode == Keyboard.KEY_C) {
                 if (getSelectedChannel() != -1) {
