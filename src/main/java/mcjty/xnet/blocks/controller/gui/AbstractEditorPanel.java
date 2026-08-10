@@ -6,6 +6,7 @@ import mcjty.lib.typed.Key;
 import mcjty.lib.typed.Type;
 import mcjty.lib.typed.TypedMap;
 import mcjty.xnet.XNet;
+import mcjty.xnet.api.channels.Color;
 import mcjty.xnet.api.channels.RSMode;
 import mcjty.xnet.api.gui.IEditorGui;
 import mcjty.xnet.network.XNetMessages;
@@ -147,6 +148,47 @@ public abstract class AbstractEditorPanel implements IEditorGui {
             return shiftTooltips;
         }
     }
+    private static final class EditorColorChoiceLabel extends ColorChoiceLabel {
+
+        private Integer cachedColor;
+        private List<String> cachedNormalTooltips;
+        private List<String> shiftTooltips;
+
+        private EditorColorChoiceLabel(Minecraft mc, GuiController gui) {
+            super(mc, gui);
+        }
+
+        @Override
+        public List<String> getTooltips() {
+            List<String> normalTooltips = super.getTooltips();
+            if (!Keyboard.isKeyDown(Keyboard.KEY_LSHIFT)) {
+                return normalTooltips;
+            }
+
+            Integer currentColor = getCurrentColor();
+            if (currentColor == null) {
+                return normalTooltips;
+            }
+
+            if (shiftTooltips == null || normalTooltips != cachedNormalTooltips || !currentColor.equals(cachedColor)) {
+                Color color = Color.colorByValue(currentColor);
+                if (color == null) {
+                    return normalTooltips;
+                }
+
+                int normalSize = normalTooltips == null ? 0 : normalTooltips.size();
+                shiftTooltips = new ArrayList<>(normalSize + 1);
+                if (normalTooltips != null) {
+                    shiftTooltips.addAll(normalTooltips);
+                }
+                shiftTooltips.add(TextFormatting.GRAY + color.name().toLowerCase(Locale.ROOT));
+                cachedColor = currentColor;
+                cachedNormalTooltips = normalTooltips;
+            }
+
+            return shiftTooltips;
+        }
+    }
 
     @Override
     public IEditorGui label(String txt) {
@@ -270,7 +312,7 @@ public abstract class AbstractEditorPanel implements IEditorGui {
     public IEditorGui colors(String tag, String tooltip, Integer current, Integer... colors) {
         int w = 14;
         fitWidth(w);
-        ColorChoiceLabel choice = new ColorChoiceLabel(mc, gui).addColors(colors).setCurrentColor(current)
+        ColorChoiceLabel choice = new EditorColorChoiceLabel(mc, gui).addColors(colors).setCurrentColor(current)
                 .setTooltips(parseTooltips(tooltip))
                 .setLayoutHint(new PositionalLayout.PositionalHint(x, y, w, 14));
         data.put(tag, current);
