@@ -1,3 +1,7 @@
+1.8.23
+
+- Added JEI fluid drag support for XNet fluid filters
+
 1.8.22
 - Centered controller popup messages across GUI scales.
 - Fixed filter items rendering above the cursor-held stack.

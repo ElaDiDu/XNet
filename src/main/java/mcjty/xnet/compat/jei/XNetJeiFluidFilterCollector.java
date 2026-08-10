@@ -5,6 +5,7 @@ import mezz.jei.api.gui.IGuiIngredient;
 import mezz.jei.api.gui.IRecipeLayout;
 import net.minecraft.item.ItemStack;
 import net.minecraftforge.fluids.FluidStack;
+import net.minecraftforge.fluids.FluidUtil;
 
 import java.util.ArrayList;
 import java.util.Collections;
@@ -87,20 +88,11 @@ public final class XNetJeiFluidFilterCollector {
         return null;
     }
 
-    private static ItemStack toFilterBucket(FluidStack fluidStack) {
-        FluidStack copy = fluidStack.copy();
-
-        // A bucket filter is only an identity reference. Make sure there is
-        // enough fluid for normal bucket conversion even if JEI shows <1000mb.
-        if (copy.amount < 1000) {
-            copy.amount = 1000;
-        }
-
-        ItemStack bucket = FluidTools.convertFluidToBucket(copy);
+    static ItemStack toFilterBucket(FluidStack fluidStack) {
+        ItemStack bucket = FluidUtil.getFilledBucket(fluidStack);
         if (!bucket.isEmpty()) {
             bucket.setCount(1);
         }
-
         return bucket;
     }
 
