@@ -1,3 +1,8 @@
+1.8.23
+- Improved tooltips for Controller:
+  - hold LShift to view contents of field
+  - show channelname when hovering buttons
+
 1.8.22
 - Centered controller popup messages across GUI scales.
 - Fixed filter items rendering above the cursor-held stack.

@@ -133,15 +133,16 @@ public abstract class AbstractEditorPanel implements IEditorGui {
                 return normalTooltips;
             }
             String value = getText();
+            if (value.isEmpty()) {
+                return normalTooltips;
+            }
             if (shiftTooltips == null || normalTooltips != cachedNormalTooltips || !value.equals(cachedValue)) {
                 int normalSize = normalTooltips == null ? 0 : normalTooltips.size();
                 shiftTooltips = new ArrayList<>(normalSize + 1);
                 if (normalTooltips != null) {
                     shiftTooltips.addAll(normalTooltips);
                 }
-                if (!value.isEmpty()) {
-                    shiftTooltips.add(TextFormatting.GRAY + value);
-                }
+                shiftTooltips.add(TextFormatting.GRAY + value);
                 cachedValue = value;
                 cachedNormalTooltips = normalTooltips;
             }
