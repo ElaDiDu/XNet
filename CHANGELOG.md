@@ -1,3 +1,6 @@
+1.8.23
+- Fix stale item/fluid filter matcher after Shift-click
+
 1.8.22
 - Centered controller popup messages across GUI scales.
 - Fixed filter items rendering above the cursor-held stack.
