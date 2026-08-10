@@ -1052,10 +1052,11 @@ public final class TileEntityController extends GenericEnergyReceiverTileEntity 
         if (connector == null)
             return;
 
+        IConnectorSettings settings = connector.getConnectorSettings();
         ItemStackList filters = null;
-        if (connector.getConnectorSettings() instanceof ItemConnectorSettings itemSettings)
+        if (settings instanceof ItemConnectorSettings itemSettings)
             filters = itemSettings.getFilters();
-        else if (connector.getConnectorSettings() instanceof FluidConnectorSettings fluidSettings)
+        else if (settings instanceof FluidConnectorSettings fluidSettings)
             filters = fluidSettings.getFilters();
 
         if (filters != null)
@@ -1065,6 +1066,10 @@ public final class TileEntityController extends GenericEnergyReceiverTileEntity 
                 if (filters.get(i).isEmpty())
                 {
                     filters.set(i, stack);
+                    if (connector.getConnectorSettings() instanceof ItemConnectorSettings itemSettings)
+                        itemSettings.invalidateMatcher();
+                    else if (connector.getConnectorSettings() instanceof FluidConnectorSettings fluidSettings)
+                        fluidSettings.invalidateMatcher();
                     markAsDirty();
                     break;
                 }

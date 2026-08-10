@@ -116,7 +116,9 @@ public class FluidConnectorSettings extends AbstractConnectorSettings {
     {
         return filters;
     }
-
+    public void invalidateMatcher() {
+        matcher = null;
+    }
     public boolean isBlacklist() {
         return blacklist;
     }

@@ -232,7 +232,6 @@ public class ItemConnectorSettings extends AbstractConnectorSettings {
     public StackMode getStackMode() {
         return stackMode;
     }
-
     public ExtractMode getExtractMode() {
         return extractMode;
     }
@@ -256,33 +255,26 @@ public class ItemConnectorSettings extends AbstractConnectorSettings {
     public int getExtractAmount() {
         return extractAmount == null ? 1 : extractAmount;
     }
-
     public int getSpeed() {
         return speed;
     }
-
     public boolean isBlacklist()
     {
         return blacklist;
     }
-
     public boolean isCountMode()
     {
         return countMode;
     }
-
     public boolean isOredictMode() { return oredictMode; }
-
     public boolean isMetaMode() { return metaMode; }
-
     public boolean isNbtMode() { return nbtMode; }
-
     @Nullable
     public Integer getExtractAmountSetting() { return extractAmount; }
 
-    public ItemStackList getFilters()
-    {
-        return filters;
+    public ItemStackList getFilters() {return filters;}
+    public void invalidateMatcher() {
+        matcher = null;
     }
 
     private static final Set<String> INSERT_TAGS = ImmutableSet.of(TAG_MODE, TAG_RS, TAG_COLOR_OPERATOR, TAG_COLOR+"0", TAG_COLOR+"1", TAG_COLOR+"2", TAG_COLOR+"3", TAG_COUNT, TAG_PRIORITY, TAG_OREDICT, TAG_META, TAG_NBT, TAG_BLACKLIST, TAG_COUNTMODE, TAG_SLOT);
