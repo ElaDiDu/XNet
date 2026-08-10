@@ -20,12 +20,17 @@ import mcjty.lib.gui.widgets.TextField;
 import mcjty.lib.tileentity.GenericEnergyStorageTileEntity;
 import mcjty.lib.typed.TypedMap;
 import mcjty.lib.varia.BlockPosTools;
+import mcjty.lib.varia.FluidTools;
 import mcjty.lib.varia.Logging;
 import mcjty.xnet.XNet;
+import mcjty.xnet.api.channels.Color;
 import mcjty.xnet.api.channels.IChannelType;
+import mcjty.xnet.api.helper.AbstractConnectorSettings;
 import mcjty.xnet.api.gui.IndicatorIcon;
 import mcjty.xnet.api.keys.SidedConsumer;
 import mcjty.xnet.api.keys.SidedPos;
+import mcjty.xnet.apiimpl.logic.LogicConnectorSettings;
+import mcjty.xnet.apiimpl.logic.Sensor;
 import mcjty.xnet.blocks.controller.TileEntityController;
 import mcjty.xnet.blocks.generic.GenericXNetGuiContainer;
 import mcjty.xnet.clientinfo.ChannelClientInfo;
@@ -45,6 +50,7 @@ import net.minecraft.util.EnumFacing;
 import net.minecraft.util.ResourceLocation;
 import net.minecraft.util.math.BlockPos;
 import net.minecraft.util.text.TextFormatting;
+import net.minecraftforge.fluids.FluidStack;
 import org.lwjgl.input.Keyboard;
 import org.lwjgl.input.Mouse;
 
@@ -256,7 +262,10 @@ public class GuiController extends GenericXNetGuiContainer<TileEntityController>
         searchBar.setTooltips(
                 TextFormatting.GREEN + "Search connected blocks and connector names",
                 TextFormatting.WHITE + "Prefix " + TextFormatting.YELLOW + "!" + TextFormatting.WHITE + " to search connector names only",
-                TextFormatting.WHITE + "Use " + TextFormatting.YELLOW + "!" + TextFormatting.WHITE + " alone to show all named connectors"
+                TextFormatting.WHITE + "Prefix " + TextFormatting.YELLOW + "?" + TextFormatting.WHITE + " to search filters",
+                TextFormatting.WHITE + "Prefix " + TextFormatting.YELLOW + "%" + TextFormatting.WHITE + " to search channel <number>",
+                TextFormatting.WHITE + "Prefix " + TextFormatting.YELLOW + "&" + TextFormatting.WHITE + " to search logical colors",
+                TextFormatting.WHITE + "Prefix " + TextFormatting.YELLOW + "-" + TextFormatting.WHITE + " to exclude a search condition"
         );
         connectorList = window.findChild("connectors");
 
@@ -733,28 +742,407 @@ public class GuiController extends GenericXNetGuiContainer<TileEntityController>
         return -1;
     }
 
-    private boolean matchesSearch(String selectedText, String blockName, String connectorName) {
+    private static final class SearchQuery {
+        private String plainText = "";
+        private final List<String> connectorSearches = new ArrayList<>();
+        private final List<String> excludedConnectorSearches = new ArrayList<>();
+        private final List<String> filterSearches = new ArrayList<>();
+        private final List<String> excludedFilterSearches = new ArrayList<>();
+        private int channelMask = 0;
+        private int excludedChannelMask = 0;
+        private final List<Integer> colorSearches = new ArrayList<>();
+        private final List<Integer> excludedColorSearches = new ArrayList<>();
+        private boolean anyColor = false;
+        private boolean noColor = false;
+        private boolean anyConnector = false;
+        private boolean noConnector = false;
+        private boolean invalid = false;
+    }
+
+    private int getSearchPrefixIndex(String token) {
+        if (token.isEmpty()) {
+            return -1;
+        }
+        char c = token.charAt(0);
+        if (c == '!' || c == '?' || c == '%' || c == '&') {
+            return 0;
+        }
+        if (c == '-' && token.length() > 1) {
+            c = token.charAt(1);
+            if (c == '!' || c == '?' || c == '%' || c == '&') {
+                return 1;
+            }
+        }
+        return -1;
+    }
+
+    private int getColorSearchMask(String value) {
+        String search = value.toUpperCase(Locale.ROOT);
+        int mask = 0;
+        for (Color color : Color.values()) {
+            if (color != Color.OFF && color.name().startsWith(search)) {
+                mask |= 1 << color.ordinal();
+            }
+        }
+        return mask;
+    }
+
+    private SearchQuery parseSearch(String selectedText) {
+        SearchQuery query = new SearchQuery();
         if (selectedText.isEmpty()) {
+            return query;
+        }
+
+        boolean usesAdvancedSyntax = false;
+        for (int i = 0; i < selectedText.length(); i++) {
+            if (i > 0 && !Character.isWhitespace(selectedText.charAt(i - 1))) {
+                continue;
+            }
+            char c = selectedText.charAt(i);
+            if (c == '?' || c == '%' || c == '&' || (c == '!' && i > 0)
+                    || (c == '-' && i + 1 < selectedText.length()
+                    && (selectedText.charAt(i + 1) == '!' || selectedText.charAt(i + 1) == '?'
+                    || selectedText.charAt(i + 1) == '%' || selectedText.charAt(i + 1) == '&'))) {
+                usesAdvancedSyntax = true;
+                break;
+            }
+        }
+
+        if (!usesAdvancedSyntax) {
+            if (selectedText.startsWith("!")) {
+                query.connectorSearches.add(selectedText.substring(1).trim());
+            } else {
+                query.plainText = selectedText;
+            }
+            return query;
+        }
+
+        String[] tokens = selectedText.split("\\s+");
+        StringBuilder plain = new StringBuilder();
+
+        for (int i = 0; i < tokens.length; i++) {
+            String token = tokens[i];
+            int prefixIndex = getSearchPrefixIndex(token);
+
+            if (prefixIndex == -1) {
+                if (plain.length() > 0) {
+                    plain.append(' ');
+                }
+                plain.append(token);
+                continue;
+            }
+
+            boolean excluded = prefixIndex == 1;
+            char prefix = token.charAt(prefixIndex);
+
+            if (prefix == '!' || prefix == '?') {
+                StringBuilder value = new StringBuilder(token.substring(prefixIndex + 1));
+                while (i + 1 < tokens.length && getSearchPrefixIndex(tokens[i + 1]) == -1) {
+                    if (value.length() > 0) {
+                        value.append(' ');
+                    }
+                    value.append(tokens[++i]);
+                }
+
+                if (prefix == '!') {
+                    (excluded ? query.excludedConnectorSearches : query.connectorSearches).add(value.toString());
+                } else {
+                    (excluded ? query.excludedFilterSearches : query.filterSearches).add(value.toString());
+                }
+            } else if (prefix == '%') {
+                String value = token.substring(prefixIndex + 1);
+                if (value.isEmpty()) {
+                    if (excluded) {
+                        query.noConnector = true;
+                    } else {
+                        query.anyConnector = true;
+                    }
+                    continue;
+                }
+                boolean numeric = true;
+                for (int j = 0; j < value.length(); j++) {
+                    numeric = value.charAt(j) >= '0' && value.charAt(j) <= '9';
+                }
+                if (!numeric) {
+                    query.invalid = true;
+                    continue;
+                }
+
+                try {
+                    int channel = Integer.parseInt(value);
+                    if (channel < 1 || channel > MAX_CHANNELS) {
+                        query.invalid = true;
+                    } else if (excluded) {
+                        query.excludedChannelMask |= 1 << (channel - 1);
+                    } else {
+                        query.channelMask |= 1 << (channel - 1);
+                    }
+                } catch (NumberFormatException e) {
+                    query.invalid = true;
+                }
+            } else if (prefix == '&') {
+                String value = token.substring(prefixIndex + 1);
+                if (value.isEmpty()) {
+                    if (excluded) {
+                        query.noColor = true;
+                    } else {
+                        query.anyColor = true;
+                    }
+                    continue;
+                }
+
+                int mask = getColorSearchMask(value);
+                if (mask == 0) {
+                    query.invalid = true;
+                } else if (excluded) {
+                    query.excludedColorSearches.add(mask);
+                } else {
+                    query.colorSearches.add(mask);
+                }
+            }
+        }
+        query.plainText = plain.toString();
+        return query;
+    }
+
+    private boolean matchesFilterStack(ItemStack stack, String search, boolean fluid) {
+        if (stack == null || stack.isEmpty()) {
+            return false;
+        }
+        if (search.isEmpty()) {
             return true;
         }
 
-        String lowerConnectorName = connectorName == null ? "" : connectorName.toLowerCase();
-
-        if (selectedText.startsWith("!")) {
-            String connectorSearch = selectedText.substring(1).trim();
-
-            // Typing only "!" shows all named connectors.
-            if (connectorSearch.isEmpty()) {
-                return !lowerConnectorName.isEmpty();
-            }
-
-            return lowerConnectorName.contains(connectorSearch);
+        String displayName = stack.getDisplayName();
+        if (displayName != null && displayName.toLowerCase().contains(search)) {
+            return true;
         }
 
-        String lowerBlockName = blockName == null ? "" : blockName.toLowerCase();
-
-        return lowerBlockName.contains(selectedText) || lowerConnectorName.contains(selectedText);
+        ResourceLocation registryName = stack.getItem().getRegistryName();
+        if (registryName != null && registryName.toString().toLowerCase().contains(search)) {
+            return true;
+        }
+        if (fluid) {
+            FluidStack fluidStack = FluidTools.convertBucketToFluid(stack);
+            if (fluidStack != null && fluidStack.getFluid() != null) {
+                if (fluidStack.getFluid().getName().toLowerCase().contains(search)) {
+                    return true;
+                }
+                String localizedName = fluidStack.getLocalizedName();
+                return localizedName != null && localizedName.toLowerCase().contains(search);
+            }
+        }
+        return false;
     }
+
+    private boolean matchesConfiguredFilter(IConnectorSettings settings, String search) {
+        if (settings instanceof ItemConnectorSettings) {
+            for (ItemStack stack : ((ItemConnectorSettings) settings).getFilters()) {
+                if (matchesFilterStack(stack, search, false)) {
+                    return true;
+                }
+            }
+            return false;
+        }
+
+        if (settings instanceof FluidConnectorSettings) {
+            for (ItemStack stack : ((FluidConnectorSettings) settings).getFilters()) {
+                if (matchesFilterStack(stack, search, true)) {
+                    return true;
+                }
+            }
+            return false;
+        }
+
+        if (settings instanceof LogicConnectorSettings) {
+            LogicConnectorSettings logic = (LogicConnectorSettings) settings;
+            if (logic.getLogicMode() != LogicConnectorSettings.LogicMode.SENSOR) {
+                return false;
+            }
+            for (Sensor sensor : logic.getSensors()) {
+                if (sensor.getSensorMode() == Sensor.SensorMode.ITEM) {
+                    if (matchesFilterStack(sensor.getFilter(), search, false)) {
+                        return true;
+                    }
+                } else if (sensor.getSensorMode() == Sensor.SensorMode.FLUID) {
+                    if (matchesFilterStack(sensor.getFilter(), search, true)) {
+                        return true;
+                    }
+                }
+            }
+        }
+        return false;
+    }
+
+    private int getConfiguredColorMask(IConnectorSettings settings) {
+        int mask = 0;
+
+        if (settings instanceof AbstractConnectorSettings) {
+            mask |= ((AbstractConnectorSettings) settings).getColorsMask();
+        }
+        if (settings instanceof LogicConnectorSettings) {
+            LogicConnectorSettings logic = (LogicConnectorSettings) settings;
+            if (logic.getLogicMode() == LogicConnectorSettings.LogicMode.SENSOR) {
+                for (Sensor sensor : logic.getSensors()) {
+                    Color outputColor = sensor.getOutputColor();
+                    if (sensor.getSensorMode() != Sensor.SensorMode.OFF && outputColor != null && outputColor != Color.OFF) {
+                        mask |= 1 << outputColor.ordinal();
+                    }
+                }
+            }
+        }
+        return mask;
+    }
+
+    private boolean matchesSearch(SearchQuery query, String blockName, String connectorName, SidedPos sidedPos, @Nullable ConnectorClientInfo[] rowConnectors) {
+        if (query.invalid) {
+            return false;
+        }
+
+        String lowerConnectorName = "";
+        if (!query.connectorSearches.isEmpty() || !query.excludedConnectorSearches.isEmpty() || !query.plainText.isEmpty()) {
+            lowerConnectorName = connectorName == null ? "" : connectorName.toLowerCase();
+        }
+
+        for (String connectorSearch : query.connectorSearches) {
+            if (connectorSearch.isEmpty()) {
+                if (lowerConnectorName.isEmpty()) {
+                    return false;
+                }
+            } else if (!lowerConnectorName.contains(connectorSearch)) {
+                return false;
+            }
+        }
+
+        for (String connectorSearch : query.excludedConnectorSearches) {
+            if (connectorSearch.isEmpty()) {
+                if (!lowerConnectorName.isEmpty()) {
+                    return false;
+                }
+            } else if (lowerConnectorName.contains(connectorSearch)) {
+                return false;
+            }
+        }
+
+        if (!query.plainText.isEmpty()) {
+            String lowerBlockName = blockName == null ? "" : blockName.toLowerCase();
+            if (!lowerBlockName.contains(query.plainText) && !lowerConnectorName.contains(query.plainText)) {
+                return false;
+            }
+        }
+
+        if (rowConnectors == null) {
+            return true;
+        }
+
+        for (int i = 0; i < MAX_CHANNELS; i++) {
+            ChannelClientInfo info = fromServer_channels.get(i);
+            rowConnectors[i] = info == null ? null : findClientInfo(info, sidedPos);
+        }
+
+        if (query.anyConnector) {
+            boolean found = false;
+            for (ConnectorClientInfo connector : rowConnectors) {
+                if (connector != null) {
+                    found = true;
+                    break;
+                }
+            }
+            if (!found) {
+                return false;
+            }
+        }
+
+        if (query.noConnector) {
+            for (ConnectorClientInfo connector : rowConnectors) {
+                if (connector != null) {
+                    return false;
+                }
+            }
+        }
+
+        for (int i = 0; i < MAX_CHANNELS; i++) {
+            if ((query.channelMask & (1 << i)) != 0 && rowConnectors[i] == null) {
+                return false;
+            }
+            if ((query.excludedChannelMask & (1 << i)) != 0 && rowConnectors[i] != null) {
+                return false;
+            }
+        }
+
+        int scopeMask = query.channelMask == 0 ? (1 << MAX_CHANNELS) - 1 : query.channelMask;
+
+        boolean hasPositiveConnectorConditions = !query.filterSearches.isEmpty() || query.anyColor || !query.colorSearches.isEmpty();
+        if (hasPositiveConnectorConditions) {
+            boolean found = false;
+
+            for (int i = 0; i < MAX_CHANNELS; i++) {
+                if ((scopeMask & (1 << i)) == 0 || rowConnectors[i] == null) {
+                    continue;
+                }
+                IConnectorSettings settings = rowConnectors[i].getConnectorSettings();
+                boolean matches = true;
+
+                for (String filterSearch : query.filterSearches) {
+                    if (!matchesConfiguredFilter(settings, filterSearch)) {
+                        matches = false;
+                        break;
+                    }
+                }
+                if (matches && (query.anyColor || !query.colorSearches.isEmpty())) {
+                    int configuredColors = getConfiguredColorMask(settings);
+
+                    if (query.anyColor && configuredColors == 0) {
+                        matches = false;
+                    }
+
+                    if (matches) {
+                        for (int colorSearch : query.colorSearches) {
+                            if ((configuredColors & colorSearch) == 0) {
+                                matches = false;
+                                break;
+                            }
+                        }
+                    }
+                }
+                if (matches) {
+                    found = true;
+                    break;
+                }
+            }
+            if (!found) {
+                return false;
+            }
+        }
+
+        if (!query.excludedFilterSearches.isEmpty() || query.noColor || !query.excludedColorSearches.isEmpty()) {
+            for (int i = 0; i < MAX_CHANNELS; i++) {
+                if ((scopeMask & (1 << i)) == 0 || rowConnectors[i] == null) {
+                    continue;
+                }
+                IConnectorSettings settings = rowConnectors[i].getConnectorSettings();
+
+                for (String filterSearch : query.excludedFilterSearches) {
+                    if (matchesConfiguredFilter(settings, filterSearch)) {
+                        return false;
+                    }
+                }
+                if (query.noColor || !query.excludedColorSearches.isEmpty()) {
+                    int configuredColors = getConfiguredColorMask(settings);
+                    if (query.noColor && configuredColors != 0) {
+                        return false;
+                    }
+                    for (int colorSearch : query.excludedColorSearches) {
+                        if ((configuredColors & colorSearch) != 0) {
+                            return false;
+                        }
+                    }
+                }
+            }
+        }
+        return true;
+    }
+
     private void populateList() {
         if (!listsReady()) {
             return;
@@ -771,6 +1159,12 @@ public class GuiController extends GenericXNetGuiContainer<TileEntityController>
         BlockPos prevPos = null;
 
         String selectedText = searchBar.getText().trim().toLowerCase();
+        SearchQuery searchQuery = parseSearch(selectedText);
+        boolean searchNeedsConnectorData = searchQuery.anyConnector || searchQuery.noConnector
+                || searchQuery.channelMask != 0 || searchQuery.excludedChannelMask != 0
+                || !searchQuery.filterSearches.isEmpty() || !searchQuery.excludedFilterSearches.isEmpty()
+                || searchQuery.anyColor || searchQuery.noColor || !searchQuery.colorSearches.isEmpty() || !searchQuery.excludedColorSearches.isEmpty();
+        ConnectorClientInfo[] rowConnectors = searchNeedsConnectorData ? new ConnectorClientInfo[MAX_CHANNELS] : null;
 
         for (ConnectedBlockClientInfo connectedBlock : fromServer_connectedBlocks) {
             SidedPos sidedPos = connectedBlock.getPos();
@@ -781,11 +1175,10 @@ public class GuiController extends GenericXNetGuiContainer<TileEntityController>
 
             int color = StyleConfig.colorTextInListNormal;
 
-            Panel panel = new Panel(mc, this).setLayout(new HorizontalLayout().setHorizontalMargin(0).setSpacing(0));
-
-            if (!matchesSearch(selectedText, blockName, name)) {
+            if (!matchesSearch(searchQuery, blockName, name, sidedPos, rowConnectors)) {
                 continue;
             }
+            Panel panel = new Panel(mc, this).setLayout(new HorizontalLayout().setHorizontalMargin(0).setSpacing(0));
 
             BlockRender br;
             if (coordinate.equals(prevPos)) {
@@ -812,7 +1205,7 @@ public class GuiController extends GenericXNetGuiContainer<TileEntityController>
                 Button but = new Button(mc, this).setDesiredWidth(14);
                 ChannelClientInfo info = fromServer_channels.get(i);
                 if (info != null) {
-                    ConnectorClientInfo clientInfo = findClientInfo(info, sidedPos);
+                    ConnectorClientInfo clientInfo = rowConnectors == null ? findClientInfo(info, sidedPos) : rowConnectors[i];
                     if (clientInfo != null) {
                         IndicatorIcon icon = clientInfo.getConnectorSettings().getIndicatorIcon();
                         if (icon != null) {
