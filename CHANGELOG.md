@@ -2,6 +2,7 @@
 - Added JEI fluid drag support for XNet fluid filters
 - Added per-filter Count to item extracting
 - Fix stale item/fluid filter matcher after Shift-click
+- Added advanced search prefixes for filters, channels and logical colors
 
 1.8.22
 - Centered controller popup messages across GUI scales.
