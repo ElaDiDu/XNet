@@ -1,3 +1,6 @@
+1.8.23
+- Added per-filter Count to item extracting
+
 1.8.22
 - Centered controller popup messages across GUI scales.
 - Fixed filter items rendering above the cursor-held stack.
