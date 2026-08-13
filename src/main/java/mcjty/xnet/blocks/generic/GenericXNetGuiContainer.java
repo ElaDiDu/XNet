@@ -27,6 +27,7 @@ public abstract class GenericXNetGuiContainer<T extends GenericTileEntity> exten
         addMainWindowExtraAreas(areas);
         return areas;
     }
+    public T getTileEntity() { return tileEntity; }
 
     private void addMainWindowExtraAreas(List<Rectangle> areas) {
         if (window == null || window.getToplevel() == null) {

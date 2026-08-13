@@ -364,7 +364,9 @@ public final class TileEntityController extends GenericEnergyReceiverTileEntity 
         }
         return cachedConnectors[channel];
     }
-
+    public boolean hasCachedRoutedConnectors(int channel) {
+        return channel >= 0 && channel < MAX_CHANNELS && cachedRoutedConnectors[channel] != null;
+    }
     @Override
     @Nonnull
     public Map<SidedConsumer, IConnectorSettings> getRoutedConnectors(int channel) {

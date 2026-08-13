@@ -22,7 +22,7 @@ public abstract class AbstractConnectorSettings implements IConnectorSettings {
     public static final String TAG_COLOR = "color";
     public static final String TAG_FACING = "facing";
     public static final String TAG_COLOR_OPERATOR = "coloroperator";
-    private enum ColorOperator {
+    public enum ColorOperator {
         AND("AND"), OR("OR"), NAND("!AND"), NOR("!OR");
         private final String label;
         ColorOperator(String label) {
@@ -81,6 +81,7 @@ public abstract class AbstractConnectorSettings implements IConnectorSettings {
     public int getColorsMask() {
         return colorsMask;
     }
+    public ColorOperator getColorOperator() {return colorOperator;}
 
     private static ColorOperator getColorOperator(String name) {
         if (name != null) {
