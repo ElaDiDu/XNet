@@ -13,7 +13,7 @@ plugins {
 
 // Project properties
 group = "eladidu.xnet"
-version = "1.8.22"
+version = "1.8.23"
 
 // Set the toolchain version to decouple the Java we run Gradle with from the Java used to compile and run the mod
 java {
@@ -178,11 +178,12 @@ dependencies {
     annotationProcessor("com.google.guava:guava:30.0-jre")
     annotationProcessor("com.google.code.gson:gson:2.8.9")
 
-    //implementation("curse.maven:jei-238222:5846804")
     implementation(rfg.deobf("curse.maven:spark-361579:3245793"))
     implementation(rfg.deobf("curse.maven:redstoneflux-270789:2920436"))
     implementation(rfg.deobf("curse.maven:tesla-244651:2487959"))
-    implementation("curse.maven:had-enough-items-557549:4810661")
+
+    // Jei Versions
+    implementation("curse.maven:had-enough-items-557549:8081514") // 4.31.2
 
     compileOnly(rfg.deobf("curse.maven:mouse-tweaks-unofficial-461660:5876158"))
     // For ctm compat integration. (if ever)
