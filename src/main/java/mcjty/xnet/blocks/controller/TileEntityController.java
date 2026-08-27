@@ -368,6 +368,13 @@ public final class TileEntityController extends GenericEnergyReceiverTileEntity 
                 SidedConsumer sidedConsumer = entry.getKey();
                 BlockPos pos = findConsumerPosition(sidedConsumer.getConsumerId());
                 if (pos != null && worldBlob.getNetworksAt(pos).contains(getNetworkId())) {
+                    if (getWorld().isBlockLoaded(pos)) {
+                        TileEntity te = getWorld().getTileEntity(pos);
+                        if (te instanceof ConnectorTileEntity
+                                && !((ConnectorTileEntity) te).isEnabled(sidedConsumer.getSide())) {
+                            continue;
+                        }
+                    }
                     cachedConnectors[channel].put(sidedConsumer, entry.getValue().getConnectorSettings());
                 }
             }

@@ -86,10 +86,16 @@ public class ConnectorTileEntity extends GenericTileEntity implements IFacadeSup
     }
 
     public void setEnabled(EnumFacing direction, boolean e) {
+        if (isEnabled(direction) == e) {return;}
         if (e) {
             enabled |= 1 << direction.ordinal();
         } else {
             enabled &= ~(1 << direction.ordinal());
+        }
+        if (world != null && !world.isRemote) {
+            setPowerOut(direction, 0);
+            world.neighborChanged(pos.offset(direction), getBlockType(), pos);
+            markConnectorNetworkDirty();
         }
         markDirtyClient();
     }
@@ -220,8 +226,8 @@ public class ConnectorTileEntity extends GenericTileEntity implements IFacadeSup
         return inputFromSide[facing.ordinal()];
     }
 
-    public int extractEnergyFrom(EnumFacing facing, int max, boolean simulate)
-    {
+    public int extractEnergyFrom(EnumFacing facing, int max, boolean simulate) {
+        if (!isEnabled(facing)) {return 0;}
         int facingOrdinal = facing.ordinal();
         int extracted = Math.min(max, inputFromSide[facingOrdinal]);
         if (simulate)
@@ -232,8 +238,7 @@ public class ConnectorTileEntity extends GenericTileEntity implements IFacadeSup
     }
 
     private int receiveEnergyInternal(EnumFacing from, int maxReceive, boolean simulate) {
-
-        if (from == null) {
+        if (from == null || !isEnabled(from)) {
             return 0;
         }
         int facingOrdinal = from.ordinal();
@@ -272,7 +277,7 @@ public class ConnectorTileEntity extends GenericTileEntity implements IFacadeSup
     @Override
     public boolean hasCapability(Capability<?> capability, EnumFacing facing) {
         if (capability == CapabilityEnergy.ENERGY && facing != null) {
-            return true;
+            return isEnabled(facing);
         }
         return super.hasCapability(capability, facing);
     }
@@ -280,7 +285,7 @@ public class ConnectorTileEntity extends GenericTileEntity implements IFacadeSup
     @Override
     public <T> T getCapability(Capability<T> capability, EnumFacing facing) {
         if (capability == CapabilityEnergy.ENERGY) {
-            if (facing == null) {
+            if (facing == null || !isEnabled(facing)) {
                 return null;
             } else {
                 if (sidedHandlers[facing.ordinal()] == null) {
@@ -321,10 +326,21 @@ public class ConnectorTileEntity extends GenericTileEntity implements IFacadeSup
 
             @Override
             public boolean canReceive() {
-                return true;
+                return ConnectorTileEntity.this.isEnabled(facing);
             }
         }
         sidedHandlers[facing.ordinal()] = new SidedHandler();
     }
-
+    private void markConnectorNetworkDirty() {
+        if (world == null || world.isRemote) {return;}
+        WorldBlob worldBlob = XNetBlobData.getBlobData(world).getWorldBlob(world);
+        worldBlob.getNetworksAt(pos).forEach(worldBlob::markNetworkDirty);
+    }
+    @Override
+    public void onLoad() {
+        super.onLoad();
+        if (!world.isRemote && enabled != 0x3f) {
+            markConnectorNetworkDirty();
+        }
+    }
 }

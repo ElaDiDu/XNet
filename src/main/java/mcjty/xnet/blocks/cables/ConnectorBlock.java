@@ -288,7 +288,10 @@ public class ConnectorBlock extends GenericCableBlock implements ITileEntityProv
         TileEntity te = world.getTileEntity(pos);
         if (state.getBlock() instanceof ConnectorBlock && te instanceof ConnectorTileEntity) {
             ConnectorTileEntity connector = (ConnectorTileEntity) te;
-            return connector.getPowerOut(side.getOpposite());
+            EnumFacing connectorSide = side.getOpposite();
+            return connector.isEnabled(connectorSide)
+                    ? connector.getPowerOut(connectorSide)
+                    : 0;
         }
         return 0;
     }
