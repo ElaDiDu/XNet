@@ -144,7 +144,7 @@ public class ItemConnectorSettings extends AbstractConnectorSettings {
                 .label("Pri").integer(TAG_PRIORITY, "Insertion priority", priority, 24)
                 //.shift(5)
                 .label("#")
-                .integer(TAG_COUNT, itemMode == ItemMode.EXT ? "Amount in destination inventory|to keep" : "Max amount in destination|inventory", count, 30);
+                .integer(TAG_COUNT, itemMode == ItemMode.EXT ? "Amount in source inventory|to keep" : "Max amount in destination|inventory", count, 30);
 
         if (itemMode == ItemMode.EXT) {
             gui
@@ -165,7 +165,7 @@ public class ItemConnectorSettings extends AbstractConnectorSettings {
                 .toggleText(TAG_OREDICT, "Ore dictionary matching", "Ore", oredictMode).shift(2)
                 .toggleText(TAG_META, "Metadata matching", "Meta", metaMode).shift(2)
                 .toggleText(TAG_NBT, "NBT matching", "NBT", nbtMode).shift(2)
-                .toggleText(TAG_COUNTMODE, "Count limit per item filter", "Count", countMode)
+                .toggleText(TAG_COUNTMODE, itemMode == ItemMode.EXT ? "Count limit per item filter to keep" : "Count limit per item filter", "Count", countMode)
                 .nl();
         for (int i = 0 ; i < FILTER_SIZE ; i++) {
             gui.ghostSlot(TAG_FILTER + i, filters.get(i));
@@ -220,6 +220,15 @@ public class ItemConnectorSettings extends AbstractConnectorSettings {
         return itemFilterCache.itemsNeededToSatisfyFilter(handler, stack);
     }
 
+    public int itemsAllowedToExtract(IItemHandler handler, ItemStack stack, int maxExtract)
+    {
+        getMatcher();
+        if (itemFilterCache == null)
+            return maxExtract;
+
+        return itemFilterCache.itemsAllowedToExtract(handler, stack, maxExtract);
+    }
+
     public StackMode getStackMode() {
         return stackMode;
     }
@@ -269,7 +278,7 @@ public class ItemConnectorSettings extends AbstractConnectorSettings {
     }
 
     private static final Set<String> INSERT_TAGS = ImmutableSet.of(TAG_MODE, TAG_RS, TAG_COLOR_OPERATOR, TAG_COLOR+"0", TAG_COLOR+"1", TAG_COLOR+"2", TAG_COLOR+"3", TAG_COUNT, TAG_PRIORITY, TAG_OREDICT, TAG_META, TAG_NBT, TAG_BLACKLIST, TAG_COUNTMODE, TAG_SLOT);
-    private static final Set<String> EXTRACT_TAGS = ImmutableSet.of(TAG_MODE, TAG_RS, TAG_COLOR_OPERATOR, TAG_COLOR+"0", TAG_COLOR+"1", TAG_COLOR+"2", TAG_COLOR+"3", TAG_COUNT, TAG_OREDICT, TAG_META, TAG_NBT, TAG_BLACKLIST, TAG_STACK, TAG_SPEED, TAG_EXTRACT, TAG_EXTRACT_AMOUNT, TAG_SLOT);
+    private static final Set<String> EXTRACT_TAGS = ImmutableSet.of(TAG_MODE, TAG_RS, TAG_COLOR_OPERATOR, TAG_COLOR+"0", TAG_COLOR+"1", TAG_COLOR+"2", TAG_COLOR+"3", TAG_COUNT, TAG_OREDICT, TAG_META, TAG_NBT, TAG_BLACKLIST, TAG_COUNTMODE, TAG_STACK, TAG_SPEED, TAG_EXTRACT, TAG_EXTRACT_AMOUNT, TAG_SLOT);
     @Override
     public boolean isEnabled(String tag) {
         if (tag.startsWith(TAG_FILTER)) {

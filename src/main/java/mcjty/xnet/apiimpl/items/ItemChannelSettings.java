@@ -298,11 +298,18 @@ public class ItemChannelSettings extends DefaultChannelSettings implements IChan
                 return ItemStack.EMPTY;
             }
             if (canextract < toextract)
-            {
                 toextract = canextract;
-                stack = stack.copy();
-                stack.setCount(toextract);
-            }
+        }
+        if (settings.isCountMode() && !settings.isBlacklist())
+        {
+            toextract = settings.itemsAllowedToExtract(handler, stack, toextract);
+            if (toextract <= 0)
+                return ItemStack.EMPTY;
+        }
+        if (toextract < stack.getCount())
+        {
+            stack = stack.copy();
+            stack.setCount(toextract);
         }
         return stack;
     }

@@ -194,6 +194,32 @@ public class ItemFilterCache {
 
     }
 
+    public int itemsAllowedToExtract(IItemHandler handler, ItemStack stack, int maxExtract)
+    {
+        if (stacks == null)
+            return maxExtract;
+        for (int filter = 0 ; filter < stacks.size() ; filter++)
+        {
+            ItemStack filterStack = stacks.get(filter);
+            if (!itemMatchesFilterItem(filterStack, stack))
+                continue;
+            int toKeep = filterStack.getCount();
+            long cnt = 0;
+            for (int i = 0 ; i < handler.getSlots() ; i++)
+            {
+                ItemStack s = handler.getStackInSlot(i);
+                if (!s.isEmpty() && itemMatchesFilterItem(filterStack, s))
+                {
+                    cnt += s.getCount();
+                    if (cnt >= (long) toKeep + maxExtract)
+                        return maxExtract;
+                }
+            }
+            return cnt > toKeep ? (int) (cnt - toKeep) : 0;
+        }
+        return maxExtract;
+    }
+
     public static class ItemsNeededLocations
     {
         public final int needed;

@@ -10,6 +10,7 @@ import mcjty.xnet.blocks.controller.gui.BlockRenderFilter;
 import mcjty.xnet.blocks.controller.gui.GuiController;
 import mezz.jei.api.gui.IGhostIngredientHandler;
 import net.minecraft.item.ItemStack;
+import net.minecraftforge.fluids.FluidStack;
 
 import java.awt.*;
 import java.util.ArrayList;
@@ -23,14 +24,27 @@ public class GhostSlotHandler implements IGhostIngredientHandler<GenericGuiConta
     private static final Point OFFSET = new Point(0, 0);
     @Override
     public <I> List<Target<I>> getTargets(GenericGuiContainer gui, I ingredient, boolean doStart) {
+        final boolean fluidIngredient = ingredient instanceof FluidStack;
+        final ItemStack fluidFilter;
 
+        if (ingredient instanceof ItemStack) {
+            fluidFilter = ItemStack.EMPTY;
+        } else if (fluidIngredient) {
+            if (!(gui instanceof GuiController) || ((GuiController) gui).getJeiRecipeFilterFluidMode() == null) {
+                return Collections.emptyList();
+            }
 
-        if (!(ingredient instanceof ItemStack)) return Collections.emptyList();
+            fluidFilter = XNetJeiFluidFilterCollector.toFilterBucket((FluidStack) ingredient);
+            if (fluidFilter.isEmpty()) {
+                return Collections.emptyList();
+            }
+        } else {
+            return Collections.emptyList();
+        }
 
         Widget<?> topLevelWidget = gui.getWindow().getToplevel();
         List<GhostIngredientTarget> blockRenderList = new ArrayList<>();
         recursiveCollectGhostIngredientTargets(blockRenderList, OFFSET, topLevelWidget);
-
         return blockRenderList.stream().map(ghostIngredientTarget -> new Target<I>() {
             @Override
             public Rectangle getArea() {
@@ -39,7 +53,7 @@ public class GhostSlotHandler implements IGhostIngredientHandler<GenericGuiConta
 
             @Override
             public void accept(I ingredient) {
-                ghostIngredientTarget.handler.accept((ItemStack) ingredient);
+                ghostIngredientTarget.handler.accept(fluidIngredient ? fluidFilter.copy() : (ItemStack) ingredient);
             }
         }).collect(Collectors.toList());
     }
