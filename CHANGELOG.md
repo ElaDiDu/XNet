@@ -1,5 +1,6 @@
 1.8.23
 - Added per-filter Count to item extracting
+- Added JEI fluid drag support for XNet fluid filters
 
 1.8.22
 - Centered controller popup messages across GUI scales.

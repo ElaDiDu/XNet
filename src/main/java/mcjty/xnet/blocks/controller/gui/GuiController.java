@@ -724,7 +724,7 @@ public class GuiController extends GenericXNetGuiContainer<TileEntityController>
         }
     }
 
-    private int getSelectedChannel() {
+    public int getSelectedChannel() {
         for (int i = 0 ; i < MAX_CHANNELS ; i++) {
             if (channelButtons[i].isPressed()) {
                 return i;
