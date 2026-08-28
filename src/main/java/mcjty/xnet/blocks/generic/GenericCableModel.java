@@ -15,10 +15,13 @@ import java.util.Collections;
 import java.util.function.Function;
 
 public class GenericCableModel implements IModel {
+    private final CableColor color;
+    public GenericCableModel() {this(CableColor.BLUE);}
+    public GenericCableModel(CableColor color) {this.color = color;}
 
     @Override
     public IBakedModel bake(IModelState state, VertexFormat format, Function<ResourceLocation, TextureAtlasSprite> bakedTextureGetter) {
-        return new GenericCableBakedModel(format);
+        return new GenericCableBakedModel(format, bakedTextureGetter.apply(new ResourceLocation(XNet.MODID, "blocks/cable" + color.ordinal() + "/normal_netcable")));
     }
 
     @Override

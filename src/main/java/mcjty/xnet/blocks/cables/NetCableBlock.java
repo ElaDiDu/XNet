@@ -38,15 +38,14 @@ public class NetCableBlock extends GenericCableBlock {
     @SideOnly(Side.CLIENT)
     public void initModel() {
         super.initModel();
-
-        // To make sure that our ISBM model is chosen for all states we use this custom state mapper:
-        StateMapperBase ignoreState = new StateMapperBase() {
+        // Keep the dynamic cable model, but give every color its own baked model for particle lookup
+        StateMapperBase colorState = new StateMapperBase() {
             @Override
-            protected ModelResourceLocation getModelResourceLocation(IBlockState iBlockState) {
-                return GenericCableBakedModel.modelCable;
+            protected ModelResourceLocation getModelResourceLocation(IBlockState state) {
+                return new ModelResourceLocation(NetCableBlock.this.getRegistryName(), "color=" + state.getValue(COLOR).getName());
             }
         };
-        ModelLoader.setCustomStateMapper(this, ignoreState);
+        ModelLoader.setCustomStateMapper(this, colorState);
     }
 
     @Override
