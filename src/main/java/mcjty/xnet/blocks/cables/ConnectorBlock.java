@@ -12,7 +12,6 @@ import mcjty.xnet.blocks.controller.TileEntityController;
 import mcjty.xnet.blocks.facade.FacadeBlockId;
 import mcjty.xnet.blocks.facade.FacadeItemBlock;
 import mcjty.xnet.blocks.generic.CableColor;
-import mcjty.xnet.blocks.generic.GenericCableBakedModel;
 import mcjty.xnet.blocks.generic.GenericCableBlock;
 import mcjty.xnet.blocks.redstoneproxy.RedstoneProxyBlock;
 import mcjty.xnet.blocks.router.TileEntityRouter;

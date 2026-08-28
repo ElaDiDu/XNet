@@ -1,7 +1,6 @@
 package mcjty.xnet.blocks.cables;
 
 import mcjty.xnet.blocks.generic.CableColor;
-import mcjty.xnet.blocks.generic.GenericCableBakedModel;
 import mcjty.xnet.blocks.generic.GenericCableBlock;
 import net.minecraft.block.Block;
 import net.minecraft.block.material.Material;
