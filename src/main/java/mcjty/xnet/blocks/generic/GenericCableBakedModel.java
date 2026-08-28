@@ -47,6 +47,7 @@ public class GenericCableBakedModel implements IBakedModel {
     private static TextureAtlasSprite spriteSide;
 
     private VertexFormat format;
+    private final TextureAtlasSprite particleTexture;
 
     static {
         CablePatterns.PATTERNS.put(new CablePatterns.Pattern(false, false, false, false), new CablePatterns.QuadSetting(SPRITE_NONE, 0));
@@ -109,8 +110,9 @@ public class GenericCableBakedModel implements IBakedModel {
         return cableTexture.spriteNoneCable;
     }
 
-    public GenericCableBakedModel(VertexFormat format) {
+    public GenericCableBakedModel(VertexFormat format, TextureAtlasSprite particleTexture) {
         this.format = format;
+        this.particleTexture = particleTexture;
     }
 
     private void putVertex(UnpackedBakedQuad.Builder builder, Vec3d normal,
@@ -392,11 +394,7 @@ public class GenericCableBakedModel implements IBakedModel {
 
     @Override
     public TextureAtlasSprite getParticleTexture() {
-        initTextures();
-        if (cableTextures == null || cableTextures.length == 0 || cableTextures[0] == null) {
-            return Minecraft.getMinecraft().getTextureMapBlocks().getMissingSprite();
-        }
-        return cableTextures[0].spriteNormalCable;
+        return particleTexture;
     }
 
     public static void resetTextureCache() {

@@ -39,9 +39,18 @@ public class BakedModelLoader implements ICustomModelLoader {
     public IModel loadModel(ResourceLocation modelLocation) {
         if (FacadeBlock.FACADE.equals(modelLocation.getPath())) {
             return FACADE_MODEL;
-        } else {
-            return GENERIC_MODEL;
         }
+        CableColor color = CableColor.BLUE;
+        if (modelLocation instanceof ModelResourceLocation) {
+            String variant = ((ModelResourceLocation) modelLocation).getVariant();
+            for (CableColor value : CableColor.VALUES) {
+                if (variant.equals("color=" + value.getName())) {
+                    color = value;
+                    break;
+                }
+            }
+        }
+        return new GenericCableModel(color);
     }
 
     @Override

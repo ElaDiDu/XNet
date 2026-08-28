@@ -216,16 +216,15 @@ public class ConnectorBlock extends GenericCableBlock implements ITileEntityProv
     @SideOnly(Side.CLIENT)
     public void initModel() {
         super.initModel();
-        // To make sure that our ISBM model is chosen for all states we use this custom state mapper:
-        StateMapperBase ignoreState = new StateMapperBase() {
+        // Normal and advanced connectors share this dynamic model, separated only by color for particle lookup
+        StateMapperBase colorState = new StateMapperBase() {
             @Override
-            protected ModelResourceLocation getModelResourceLocation(IBlockState iBlockState) {
-                return GenericCableBakedModel.modelConnector;
+            protected ModelResourceLocation getModelResourceLocation(IBlockState state) {
+                return new ModelResourceLocation(XNet.MODID + ":" + CONNECTOR, "color=" + state.getValue(COLOR).getName());
             }
         };
-        ModelLoader.setCustomStateMapper(this, ignoreState);
+        ModelLoader.setCustomStateMapper(this, colorState);
     }
-
 //    @Override
 //    @SideOnly(Side.CLIENT)
 //    public void initItemModel() {
