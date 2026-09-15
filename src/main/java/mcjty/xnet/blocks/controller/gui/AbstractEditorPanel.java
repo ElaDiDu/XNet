@@ -129,9 +129,6 @@ public abstract class AbstractEditorPanel implements IEditorGui {
         @Override
         public List<String> getTooltips() {
             List<String> normalTooltips = super.getTooltips();
-            if (!Keyboard.isKeyDown(Keyboard.KEY_LSHIFT)) {
-                return normalTooltips;
-            }
             String value = getText();
             if (value.isEmpty()) {
                 return normalTooltips;
@@ -162,10 +159,6 @@ public abstract class AbstractEditorPanel implements IEditorGui {
         @Override
         public List<String> getTooltips() {
             List<String> normalTooltips = super.getTooltips();
-            if (!Keyboard.isKeyDown(Keyboard.KEY_LSHIFT)) {
-                return normalTooltips;
-            }
-
             Integer currentColor = getCurrentColor();
             if (currentColor == null) {
                 return normalTooltips;
@@ -186,7 +179,6 @@ public abstract class AbstractEditorPanel implements IEditorGui {
                 cachedColor = currentColor;
                 cachedNormalTooltips = normalTooltips;
             }
-
             return shiftTooltips;
         }
     }
