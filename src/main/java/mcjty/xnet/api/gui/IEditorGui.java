@@ -38,5 +38,9 @@ public interface IEditorGui {
 
     IEditorGui ghostSlot(String tag, ItemStack slot);
 
+    default IEditorGui ghostSlot(String tag, ItemStack slot, boolean acceptsFluidIngredient) {
+        return ghostSlot(tag, slot);
+    }
+
     IEditorGui nl();
 }

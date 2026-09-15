@@ -230,7 +230,7 @@ public class FluidConnectorSettings extends AbstractConnectorSettings {
         }
 
         for (int i = 0 ; i < FILTER_SIZE; i++) {
-            gui.ghostSlot(TAG_FILTER + i, filters.get(i));
+            gui.ghostSlot(TAG_FILTER + i, filters.get(i), true);
         }
     }
 

@@ -386,10 +386,14 @@ public abstract class AbstractEditorPanel implements IEditorGui {
     }
 
     @Override
-    public IEditorGui ghostSlot(String tag, ItemStack stack) {
+    public IEditorGui ghostSlot(String tag, ItemStack stack) {return ghostSlot(tag, stack, false);}
+
+    @Override
+    public IEditorGui ghostSlot(String tag, ItemStack stack, boolean acceptsFluidIngredient) {
         int w = 16;
         fitWidth(w);
         BlockRenderFilter blockRender = new BlockRenderFilter(mc, gui);
+        blockRender.setAcceptsFluidIngredient(acceptsFluidIngredient);
         blockRender.setRenderItem(stack)
                 .setDesiredWidth(18).setDesiredHeight(18)
                 .setFilledRectThickness(-1).setFilledBackground(0xff888888);
