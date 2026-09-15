@@ -3,11 +3,8 @@ package mcjty.xnet.compat.jei;
 import com.github.bsideup.jabel.Desugar;
 import mcjty.lib.gui.GenericGuiContainer;
 import mcjty.lib.gui.widgets.AbstractContainerWidget;
-import mcjty.lib.gui.widgets.BlockRender;
-import mcjty.lib.gui.widgets.Panel;
 import mcjty.lib.gui.widgets.Widget;
 import mcjty.xnet.blocks.controller.gui.BlockRenderFilter;
-import mcjty.xnet.blocks.controller.gui.GuiController;
 import mezz.jei.api.gui.IGhostIngredientHandler;
 import net.minecraft.item.ItemStack;
 import net.minecraftforge.fluids.FluidStack;
@@ -30,10 +27,6 @@ public class GhostSlotHandler implements IGhostIngredientHandler<GenericGuiConta
         if (ingredient instanceof ItemStack) {
             fluidFilter = ItemStack.EMPTY;
         } else if (fluidIngredient) {
-            if (!(gui instanceof GuiController) || ((GuiController) gui).getJeiRecipeFilterFluidMode() == null) {
-                return Collections.emptyList();
-            }
-
             fluidFilter = XNetJeiFluidFilterCollector.toFilterBucket((FluidStack) ingredient);
             if (fluidFilter.isEmpty()) {
                 return Collections.emptyList();
@@ -44,7 +37,7 @@ public class GhostSlotHandler implements IGhostIngredientHandler<GenericGuiConta
 
         Widget<?> topLevelWidget = gui.getWindow().getToplevel();
         List<GhostIngredientTarget> blockRenderList = new ArrayList<>();
-        recursiveCollectGhostIngredientTargets(blockRenderList, OFFSET, topLevelWidget);
+        recursiveCollectGhostIngredientTargets(blockRenderList, OFFSET, topLevelWidget, fluidIngredient);
         return blockRenderList.stream().map(ghostIngredientTarget -> new Target<I>() {
             @Override
             public Rectangle getArea() {
@@ -58,13 +51,16 @@ public class GhostSlotHandler implements IGhostIngredientHandler<GenericGuiConta
         }).collect(Collectors.toList());
     }
 
-    private static void recursiveCollectGhostIngredientTargets(List<GhostIngredientTarget> blockRenderList, Point offset, Widget<?> widget)
-    {
-        if (widget instanceof BlockRenderFilter blockRender && blockRender.getBounds() != null)
-        {
+    private static void recursiveCollectGhostIngredientTargets(List<GhostIngredientTarget> blockRenderList, Point offset, Widget<?> widget, boolean fluidIngredient) {
+        if (widget instanceof BlockRenderFilter blockRender && blockRender.getBounds() != null) {
+            if (fluidIngredient && !blockRender.acceptsFluidIngredient())
+                return;
+
             Consumer<ItemStack> ghostIngredientHandler = blockRender.getOnGhostClick();
 
-            if (ghostIngredientHandler == null) return;
+            if (ghostIngredientHandler == null)
+                return;
+
             Rectangle bounds = new Rectangle(blockRender.getBounds());
             bounds.translate(offset.x + 1, offset.y + 1);
             bounds.setSize(bounds.width - 2, bounds.height - 2);
@@ -72,25 +68,20 @@ public class GhostSlotHandler implements IGhostIngredientHandler<GenericGuiConta
             return;
         }
 
-        if (!(widget instanceof AbstractContainerWidget<?> container)) return;
+        if (!(widget instanceof AbstractContainerWidget<?> container))
+            return;
 
-        for (Widget<?> child : container.getChildren())
-        {
+        for (Widget<?> child : container.getChildren()) {
             Point containerOffset = new Point(offset);
             if (container.getBounds() != null)
                 containerOffset.translate(container.getBounds().x, container.getBounds().y);
 
-            recursiveCollectGhostIngredientTargets(blockRenderList, containerOffset, child);
+            recursiveCollectGhostIngredientTargets(blockRenderList, containerOffset, child, fluidIngredient);
         }
     }
 
-
-
-
-
     @Override
-    public void onComplete() {
-    }
+    public void onComplete() {}
 
     @Desugar
     private record GhostIngredientTarget(Consumer<ItemStack> handler, Rectangle bounds) {}

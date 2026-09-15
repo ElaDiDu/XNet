@@ -15,17 +15,15 @@ public class BlockRenderFilter extends BlockRender
     private Consumer<Integer> onMouseWheel = (i) -> {};
     private Consumer<Integer> onClick = (i) -> {};
     private Consumer<ItemStack> onGhostClick = (s) -> {};
-
+    private boolean acceptsFluidIngredient = false;
     public BlockRenderFilter(Minecraft mc, Gui gui)
     {
         super(mc, gui);
     }
 
     @Override
-    public boolean mouseWheel(int amount, int x, int y)
-    {
-        if (this.isEnabledAndVisible())
-        {
+    public boolean mouseWheel(int amount, int x, int y) {
+        if (this.isEnabledAndVisible()) {
             this.onMouseWheel.accept(amount);
             return true;
         }
@@ -47,6 +45,10 @@ public class BlockRenderFilter extends BlockRender
         this.onGhostClick = onGhostClick;
     }
 
+    public void setAcceptsFluidIngredient(boolean acceptsFluidIngredient) {this.acceptsFluidIngredient = acceptsFluidIngredient;}
+
+    public boolean acceptsFluidIngredient() {return acceptsFluidIngredient;}
+
     public Consumer<ItemStack> getOnGhostClick()
     {
         return onGhostClick;
@@ -64,34 +66,18 @@ public class BlockRenderFilter extends BlockRender
 
     // draw filtered items behind held items
     @Override
-    public void draw(int x, int y)
-    {
-        if (!visible)
-        {
-            return;
-        }
+    public void draw(int x, int y) {
+        if (!visible) {return;}
         drawBackground(x, y);
         Object renderItem = getRenderItem();
-        if (renderItem == null)
-        {
-            return;
-        }
+        if (renderItem == null) {return;}
 
         float previousZLevel = mc.getRenderItem().zLevel;
-        try
-        {
-            RenderHelper.renderObject(
-                    mc,
-                    mc.getRenderItem(),
-                    x + bounds.x + getOffsetX(),
-                    y + bounds.y + getOffsetY(),
-                    renderItem,
-                    false,
-                    100.0F
-            );
+        try {
+            RenderHelper.renderObject(mc, mc.getRenderItem(), x + bounds.x + getOffsetX(),
+                    y + bounds.y + getOffsetY(), renderItem, false, 100.0F);
         }
-        finally
-        {
+        finally {
             mc.getRenderItem().zLevel = previousZLevel;
         }
     }
