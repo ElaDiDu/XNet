@@ -280,7 +280,7 @@ public abstract class AbstractConnectorSettings implements IConnectorSettings {
     }
 
     protected IEditorGui colorOperatorGui(IEditorGui gui) {
-        return gui.choices(TAG_COLOR_OPERATOR, "Logic operator for colormask", colorOperator.label, "AND", "OR", "!AND", "!OR");
+        return gui.choices(TAG_COLOR_OPERATOR, "Logic operator for colors", colorOperator.label, "AND", "OR", "!AND", "!OR");
     }
 
     protected IEditorGui redstoneGui(IEditorGui gui) {
