@@ -3,6 +3,8 @@
 - Fixed JEI item/fluid recipe transfer resetting some connectorsettings
 - Fixed integer overflows in fluid distribution, item/fluid count limits, and logic sensors
 - Added JEI fluid dragging to Logic Channel fluid sensor filters
+- Improved filter count readability against slot borders.
+- Always show values of fields in tooltips (GUI)
 
 1.8.23
 - Added JEI fluid drag support for XNet fluid filters
