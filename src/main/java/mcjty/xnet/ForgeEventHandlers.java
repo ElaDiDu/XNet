@@ -13,7 +13,8 @@ public class ForgeEventHandlers {
 
     @SubscribeEvent
     public void onWorldTick(TickEvent.WorldTickEvent event) {
-        if (event.side == Side.SERVER) {
+        if (event.side == Side.SERVER && event.phase == TickEvent.Phase.END
+                && event.world.provider.getDimension() == 0) {
             cnt--;
             if (cnt > 0) {
                 return;
