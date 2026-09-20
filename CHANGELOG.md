@@ -5,6 +5,7 @@
 - Added JEI fluid dragging to Logic Channel fluid sensor filters
 - Improved filter count readability against slot borders.
 - Always show values of fields in tooltips (GUI)
+- Strengthen against a rare, old bug where bad crashes during channel ticks could cause controllers to lose their configuration.
 
 1.8.23
 - Added JEI fluid drag support for XNet fluid filters

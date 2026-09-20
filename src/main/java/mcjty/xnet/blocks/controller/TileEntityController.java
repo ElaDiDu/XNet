@@ -252,10 +252,20 @@ public final class TileEntityController extends GenericEnergyReceiverTileEntity 
             int newcolors = 0;
             for (int i = 0; i < MAX_CHANNELS; i++) {
                 if (channels[i] != null && channels[i].isEnabled()) {
+                    // skip ticking channel instead of wiping controller (fixes a rare old Controller blank/clearing
+                    // bug on bad crashes otherwise unrelated to XNet)
+                    IChannelSettings channelSettings = channels[i].getChannelSettings();
                     if (checkAndConsumeRF(ConfigSetup.controllerChannelRFT.get())) {
-                        channels[i].getChannelSettings().tick(i, this);
+                        try {channelSettings.tick(i, this);
+                        } catch (RuntimeException e) {XNet.setup.getLogger().error(
+                                    "XNet channel tick failed. Skipping channel for this tick: controller={}, dim={}, networkId={}, channel={}, type={}",
+                                    pos, world == null ? "null" : world.provider.getDimension(),
+                                    networkId == null ? "null" : networkId.getId(), i,
+                                    channels[i].getType() == null ? "null" : channels[i].getType().getID(), e
+                            );
+                        }
                     }
-                    newcolors |= channels[i].getChannelSettings().getColors();
+                    newcolors |= channelSettings.getColors();
                     dirty = true;
                 }
             }
