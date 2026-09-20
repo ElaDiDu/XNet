@@ -162,7 +162,7 @@ public class ItemConnectorSettings extends AbstractConnectorSettings {
                 .nl()
 
                 .toggleText(TAG_BLACKLIST, "Enable blacklist mode", "BL", blacklist).shift(2)
-                .toggleText(TAG_OREDICT, "Ore dictionary matching", "Ore", oredictMode).shift(2)
+                .toggleText(TAG_OREDICT, "Ore dictionary matching", "OD", oredictMode).shift(2)
                 .toggleText(TAG_META, "Metadata matching", "Meta", metaMode).shift(2)
                 .toggleText(TAG_NBT, "NBT matching", "NBT", nbtMode).shift(2)
                 .toggleText(TAG_COUNTMODE, itemMode == ItemMode.EXT ? "Count limit per item filter to keep" : "Count limit per item filter", "Count", countMode)
