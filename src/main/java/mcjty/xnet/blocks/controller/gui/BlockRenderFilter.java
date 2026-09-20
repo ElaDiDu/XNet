@@ -85,7 +85,8 @@ public class BlockRenderFilter extends BlockRender
         try
         {
             RenderHelper.renderObject(
-                    mc, mc.getRenderItem(),
+                    mc,
+                    mc.getRenderItem(),
                     x + bounds.x + getOffsetX(),
                     y + bounds.y + getOffsetY(),
                     renderItem,
