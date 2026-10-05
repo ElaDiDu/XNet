@@ -492,7 +492,7 @@ public class FluidChannelSettings extends DefaultChannelSettings implements ICha
                                           @Nonnull IControllerContext context, @Nonnull FluidStack stack)
     {
         World world = context.getControllerWorld();
-        int filledOverall = 0;
+        long filledOverall = 0L;
         Map<Pair<SidedConsumer, FluidConnectorSettings>, Integer> fillPossible = new HashMap<>();
         int total = stack.amount;
         for (int i = 0; i < fluidConsumers.size(); i++)
@@ -563,7 +563,7 @@ public class FluidChannelSettings extends DefaultChannelSettings implements ICha
             if (toInsert > total)
                 toInsert = total;
             // Extracting too much (because of rounding) cap it to what's left
-            if (toInsert + amountExtracted > total)
+            if ((long) toInsert + amountExtracted > total)
                 toInsert = total - amountExtracted;
 
             copy.amount = toInsert;
