@@ -1,3 +1,6 @@
+1.8.24
+- Fixed integer overflows in fluid distribution, item/fluid count limits, and logic sensors
+
 1.8.23
 - Added JEI fluid drag support for XNet fluid filters
 - Added per-filter Count to item extracting
