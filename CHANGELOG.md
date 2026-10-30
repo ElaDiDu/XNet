@@ -1,4 +1,5 @@
 1.8.24
+- Optimized itemchannel: skipping zero-item extraction calls and unnecessary extraction index updates.
 - Fixed JEI item/fluid recipe transfer resetting some connectorsettings
 - Fixed integer overflows in fluid distribution, item/fluid count limits, and logic sensors
 
