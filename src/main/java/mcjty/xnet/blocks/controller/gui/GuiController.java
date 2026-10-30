@@ -31,11 +31,13 @@ import mcjty.xnet.api.keys.SidedConsumer;
 import mcjty.xnet.api.keys.SidedPos;
 import mcjty.xnet.apiimpl.logic.LogicConnectorSettings;
 import mcjty.xnet.apiimpl.logic.Sensor;
+import mcjty.xnet.blocks.cables.ConnectorBlock;
 import mcjty.xnet.blocks.controller.TileEntityController;
 import mcjty.xnet.blocks.generic.GenericXNetGuiContainer;
 import mcjty.xnet.clientinfo.ChannelClientInfo;
 import mcjty.xnet.clientinfo.ConnectedBlockClientInfo;
 import mcjty.xnet.clientinfo.ConnectorClientInfo;
+import mcjty.xnet.compat.jei.ConnectorSettingsCollector;
 import mcjty.xnet.network.PacketGetChannels;
 import mcjty.xnet.network.PacketGetConnectedBlocks;
 import mcjty.xnet.network.XNetMessages;
@@ -75,6 +77,7 @@ import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
+import java.util.Map;
 
 import static mcjty.xnet.apiimpl.items.ItemConnectorSettings.*;
 import static mcjty.xnet.blocks.controller.TileEntityController.*;
@@ -1447,6 +1450,14 @@ public class GuiController extends GenericXNetGuiContainer<TileEntityController>
 
         return 0;
     }
+    private boolean isEditingConnectorAdvanced() {
+        if (editingConnector == null || mc.world == null) {
+            return false;
+        }
+
+        BlockPos connectorPos = editingConnector.getPos().offset(editingConnector.getSide());
+        return ConnectorBlock.isAdvancedConnector(mc.world, connectorPos);
+    }
 
     public void setJeiRecipeFilters(XNetJeiItemFilterCollector.Result result) {
         List<ItemStack> addedFilters = result.getFilters();
@@ -1476,45 +1487,22 @@ public class GuiController extends GenericXNetGuiContainer<TileEntityController>
                 .put(PARAM_POS, editingConnector.getPos())
                 .put(PARAM_SIDE, editingConnector.getSide().ordinal());
 
-        putString(builder, TAG_MODE, settings.getItemMode().name().toLowerCase(Locale.ROOT));
-        putString(builder, TAG_STACK, settings.getStackMode().name().toLowerCase(Locale.ROOT));
-        putString(builder, TAG_EXTRACT, settings.getExtractMode().name().toLowerCase(Locale.ROOT));
-        putString(builder, TAG_SPEED, Integer.toString(settings.getSpeed() * 5));
-
-        putBoolean(builder, TAG_BLACKLIST, settings.isBlacklist());
-        putBoolean(builder, TAG_OREDICT, settings.isOredictMode());
-
+        Map<String, Object> data = ConnectorSettingsCollector.collect(settings, isEditingConnectorAdvanced());
+        data.put(TAG_EXTRACT, settings.getExtractMode().name().toLowerCase(Locale.ROOT));
+        data.put(TAG_EXTRACT_AMOUNT, settings.getExtractAmountSetting());
+        data.put(TAG_SLOT, settings.getSlot());
         if (result.isAdvanced()) {
-            putBoolean(builder, TAG_COUNTMODE,
+            data.put(TAG_COUNTMODE,
                     settings.getItemMode() == ItemConnectorSettings.ItemMode.INS || settings.isCountMode());
-
-            putBoolean(builder, TAG_META, settings.isMetaMode() || result.needsMeta());
-            putBoolean(builder, TAG_NBT, settings.isNbtMode() || result.needsNbt());
-        } else {
-            putBoolean(builder, TAG_COUNTMODE, settings.isCountMode());
-            putBoolean(builder, TAG_META, settings.isMetaMode());
-            putBoolean(builder, TAG_NBT, settings.isNbtMode());
-        }
-
-        if (settings.getCount() != null) {
-            putInteger(builder, TAG_COUNT, settings.getCount());
-        }
-
-        if (settings.getExtractAmountSetting() != null) {
-            putInteger(builder, TAG_EXTRACT_AMOUNT, settings.getExtractAmountSetting());
-        }
-
-        putInteger(builder, TAG_PRIORITY, settings.getPriority());
-
-        if (settings.getSlot() != null) {
-            putInteger(builder, TAG_SLOT, settings.getSlot());
+            data.put(TAG_META, settings.isMetaMode() || result.needsMeta());
+            data.put(TAG_NBT, settings.isNbtMode() || result.needsNbt());
         }
 
         for (int i = 0; i < ItemConnectorSettings.FILTER_SIZE; i++) {
             ItemStack stack = i < filters.size() ? filters.get(i).copy() : ItemStack.EMPTY;
-            putItemStack(builder, TAG_FILTER + i, stack);
+            data.put(TAG_FILTER + i, stack);
         }
-
+        putConnectorSettings(builder, data);
         rememberSelectedConnectorAfterRefresh();
 
         sendServerCommand(XNetMessages.INSTANCE, TileEntityController.CMD_UPDATECONNECTOR, builder.build());
@@ -1549,40 +1537,43 @@ public class GuiController extends GenericXNetGuiContainer<TileEntityController>
                 .put(PARAM_POS, editingConnector.getPos())
                 .put(PARAM_SIDE, editingConnector.getSide().ordinal());
 
-        putString(builder, FluidConnectorSettings.TAG_MODE,
-                settings.getFluidMode().name().toLowerCase(Locale.ROOT));
-        putString(builder, FluidConnectorSettings.TAG_SPEED,
-                Integer.toString(settings.getSpeed() * 10));
-
-        putString(builder, FluidConnectorSettings.TAG_EXTRACT,
-                settings.getExtractMode().name().toLowerCase(Locale.ROOT));
-        putString(builder, FluidConnectorSettings.TAG_AMOUNTMODE,
-                settings.getAmountMode().name().toLowerCase(Locale.ROOT));
-
-        putBoolean(builder, FluidConnectorSettings.TAG_BLACKLIST, settings.isBlacklist());
-        putInteger(builder, FluidConnectorSettings.TAG_PRIORITY, settings.getPriority());
-
-        if (settings.getRate() != null) {
-            putInteger(builder, FluidConnectorSettings.TAG_RATE, settings.getRate());
-        }
-
-        if (settings.getMinmax() != null) {
-            putInteger(builder, FluidConnectorSettings.TAG_MINMAX, settings.getMinmax());
-        }
-
-        if (settings.getExtractTank() != null) {
-            putInteger(builder, FluidConnectorSettings.TAG_TANK, settings.getExtractTank());
-        }
+        Map<String, Object> data = ConnectorSettingsCollector.collect(
+                settings,
+                isEditingConnectorAdvanced()
+        );
 
         for (int i = 0; i < FluidConnectorSettings.FILTER_SIZE; i++) {
             ItemStack stack = i < filters.size() ? filters.get(i).copy() : ItemStack.EMPTY;
-            putItemStack(builder, FluidConnectorSettings.TAG_FILTER + i, stack);
+            data.put(FluidConnectorSettings.TAG_FILTER + i, stack);
         }
+
+        putConnectorSettings(builder, data);
 
         rememberSelectedConnectorAfterRefresh();
 
         sendServerCommand(XNetMessages.INSTANCE, TileEntityController.CMD_UPDATECONNECTOR, builder.build());
         refresh();
+    }
+
+    private static void putConnectorSettings(TypedMap.Builder builder, Map<String, Object> data) {
+        for (Map.Entry<String, Object> entry : data.entrySet()) {
+            String name = entry.getKey();
+            Object value = entry.getValue();
+
+            if (value instanceof String) {
+                putString(builder, name, (String) value);
+            } else if (value instanceof Integer) {
+                putInteger(builder, name, (Integer) value);
+            } else if (value instanceof Boolean) {
+                putBoolean(builder, name, (Boolean) value);
+            } else if (value instanceof Double) {
+                builder.put(new Key<>(name, Type.DOUBLE), (Double) value);
+            } else if (value instanceof ItemStack) {
+                putItemStack(builder, name, (ItemStack) value);
+            } else {
+                putString(builder, name, value == null ? null : value.toString());
+            }
+        }
     }
 
     private static void putString(TypedMap.Builder builder, String name, String value) {
