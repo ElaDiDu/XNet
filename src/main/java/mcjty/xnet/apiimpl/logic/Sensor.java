@@ -70,6 +70,9 @@ public class Sensor {
         }
 
         public boolean match(int i1, int i2) {
+            return match((long) i1, (long) i2);}
+
+        public boolean match(long i1, long i2) {
             switch (this) {
                 case EQUAL:
                     return i1 == i2;
@@ -187,7 +190,7 @@ public class Sensor {
                 } else {
                     IItemHandler handler = ItemChannelSettings.getItemHandlerAt(te, settings.getFacing());
                     if (handler != null) {
-                        int cnt = countItem(handler, filter, amount + 1);
+                        long cnt = countItem(handler, filter, (long) amount + 1);
                         return operator.match(cnt, amount);
                     }
                 }
@@ -196,7 +199,7 @@ public class Sensor {
             case FLUID: {
                 IFluidHandler handler = FluidChannelSettings.getFluidHandlerAt(te, settings.getFacing());
                 if (handler != null) {
-                    int cnt = countFluid(handler, filter, amount + 1);
+                    long cnt = countFluid(handler, filter, (long) amount + 1);
                     return operator.match(cnt, amount);
                 }
                 break;
@@ -280,8 +283,8 @@ public class Sensor {
     }
 
     // Count items. We will stop early if we have enough to satisfy the sensor
-    private int countItem(@Nonnull IItemHandler handler, ItemStack matcher, int maxNeeded) {
-        int cnt = 0;
+    private long countItem(@Nonnull IItemHandler handler, ItemStack matcher, long maxNeeded) {
+        long cnt = 0;
         for (int i = 0; i < handler.getSlots(); i++) {
             ItemStack stack = handler.getStackInSlot(i);
             if (!stack.isEmpty()) {
@@ -304,7 +307,7 @@ public class Sensor {
         return cnt;
     }
 
-    private int countFluid(@Nonnull IFluidHandler handler, ItemStack matcher, int maxNeeded) {
+    private long countFluid(@Nonnull IFluidHandler handler, ItemStack matcher, long maxNeeded) {
         FluidStack fluidStack;
         if (!matcher.isEmpty()) {
             fluidStack = FluidTools.convertBucketToFluid(matcher);
@@ -312,7 +315,7 @@ public class Sensor {
             fluidStack = null;
         }
         IFluidTankProperties[] properties = handler.getTankProperties();
-        int cnt = 0;
+        long cnt = 0L;
         for (IFluidTankProperties property : properties) {
             FluidStack contents = property.getContents();
             if (contents != null) {

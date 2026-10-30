@@ -232,7 +232,7 @@ public class FluidChannelSettings extends DefaultChannelSettings implements ICha
         Predicate<FluidStack> extractMatcher = settings.getMatcher();
 
         Integer count = settings.getMinmax();
-        int amount = 0;
+        long amount = 0L;
         if (count != null) {
             amount = countFluid(handler, extractMatcher);
             if (amount < count) {
@@ -253,13 +253,13 @@ public class FluidChannelSettings extends DefaultChannelSettings implements ICha
                 if (stack != null) {
                     int toextract = stack.amount;
                     if (count != null) {
-                        int canextract = amount - count;
+                        long canextract = amount - count;
                         if (canextract <= 0) {
                             return startIdx;
                         }
                         if (canextract < toextract) {
                             stack = stack.copy();
-                            stack.amount = canextract;
+                            stack.amount = (int) canextract;
                         }
                     }
 
@@ -279,7 +279,7 @@ public class FluidChannelSettings extends DefaultChannelSettings implements ICha
                     int toextract = stack.amount;
                     if (count != null)
                     {
-                        int canextract = amount - count;
+                        long canextract = amount - count;
                         if (canextract <= 0)
                         {
                             continue;
@@ -287,7 +287,7 @@ public class FluidChannelSettings extends DefaultChannelSettings implements ICha
                         if (canextract < toextract)
                         {
                             stack = stack.copy();
-                            stack.amount = canextract;
+                            stack.amount = (int) canextract;
                         }
                     }
 
@@ -453,12 +453,12 @@ public class FluidChannelSettings extends DefaultChannelSettings implements ICha
         }
         if (count != null)
         {
-            int amount = countFluid(to, insertSettings.getMatcher());
-            int canInsert = count - amount;
+            long amount = countFluid(to, insertSettings.getMatcher());
+            long canInsert = count - amount;
             if (canInsert <= 0)
                 return stack.amount;
 
-            toInsert = Math.min(toInsert, canInsert);
+            toInsert = (int) Math.min(toInsert, canInsert);
         }
 
         FluidStack stackToInsert = stack.copy();
@@ -492,7 +492,7 @@ public class FluidChannelSettings extends DefaultChannelSettings implements ICha
                                           @Nonnull IControllerContext context, @Nonnull FluidStack stack)
     {
         World world = context.getControllerWorld();
-        int filledOverall = 0;
+        long filledOverall = 0L;
         Map<Pair<SidedConsumer, FluidConnectorSettings>, Integer> fillPossible = new HashMap<>();
         int total = stack.amount;
         for (int i = 0; i < fluidConsumers.size(); i++)
@@ -528,11 +528,11 @@ public class FluidChannelSettings extends DefaultChannelSettings implements ICha
                     continue;
                 if (count != null)
                 {
-                    int amount = countFluid(handler, settings.getMatcher());
-                    int canInsert = count - amount;
+                    long amount = countFluid(handler, settings.getMatcher());
+                    long canInsert = count - amount;
                     if (canInsert <= 0)
                         continue;
-                    toInsert = Math.min(toInsert, canInsert);
+                    toInsert = (int) Math.min(toInsert, canInsert);
                 }
 
                 FluidStack copy = stack.copy();
@@ -563,7 +563,7 @@ public class FluidChannelSettings extends DefaultChannelSettings implements ICha
             if (toInsert > total)
                 toInsert = total;
             // Extracting too much (because of rounding) cap it to what's left
-            if (toInsert + amountExtracted > total)
+            if ((long) toInsert + amountExtracted > total)
                 toInsert = total - amountExtracted;
 
             copy.amount = toInsert;
@@ -596,11 +596,11 @@ public class FluidChannelSettings extends DefaultChannelSettings implements ICha
                 continue;
             if (count != null)
             {
-                int amount = countFluid(handler, settings.getMatcher());
-                int canInsert = count - amount;
+                long amount = countFluid(handler, settings.getMatcher());
+                long canInsert = count - amount;
                 if (canInsert <= 0)
                     continue;
-                toInsert = Math.min(toInsert, canInsert);
+                toInsert = (int) Math.min(toInsert, canInsert);
             }
 
             FluidStack copy = stack.copy();
@@ -613,8 +613,8 @@ public class FluidChannelSettings extends DefaultChannelSettings implements ICha
         return amountExtracted;
     }
 
-    private int countFluid(IFluidHandler handler, Predicate<FluidStack> matcher) {
-        int cnt = 0;
+    private long countFluid(IFluidHandler handler, Predicate<FluidStack> matcher) {
+        long cnt = 0L;
         for (IFluidTankProperties properties : handler.getTankProperties()) {
             if (properties.getContents() != null && (matcher == null || matcher.test(properties.getContents()))) {
                 cnt += properties.getContents().amount;

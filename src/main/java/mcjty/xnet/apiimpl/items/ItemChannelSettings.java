@@ -227,7 +227,7 @@ public class ItemChannelSettings extends DefaultChannelSettings implements IChan
         Predicate<ItemStack> extractMatcher = settings.getMatcher();
 
         Integer count = settings.getCount();
-        int amount = 0;
+        long amount = 0L;
         if (count != null)
         {
             amount = countItems(handler, extractMatcher);
@@ -272,7 +272,7 @@ public class ItemChannelSettings extends DefaultChannelSettings implements IChan
         return startIdx;
     }
 
-    private ItemStack getSimulateExtractStack(ItemConnectorSettings settings, IItemHandler handler, int idx, Predicate<ItemStack> extractMatcher, int amount)
+    private ItemStack getSimulateExtractStack(ItemConnectorSettings settings, IItemHandler handler, int idx, Predicate<ItemStack> extractMatcher, long amount)
     {
         ItemStack stack = fetchItem(handler, true,
                 extractMatcher,
@@ -292,13 +292,13 @@ public class ItemChannelSettings extends DefaultChannelSettings implements IChan
         Integer count = settings.getCount();
         if (count != null)
         {
-            int canextract = amount - count;
+            long canextract = amount - count;
             if (canextract <= 0)
             {
                 return ItemStack.EMPTY;
             }
             if (canextract < toextract)
-                toextract = canextract;
+                toextract = (int) canextract;
         }
         if (settings.isCountMode() && !settings.isBlacklist())
         {
@@ -398,12 +398,12 @@ public class ItemChannelSettings extends DefaultChannelSettings implements IChan
         int toInsert = capItemTransfer(insertSettings, total);
         if (count != null)
         {
-            int amount = countItems(to, insertSettings.getMatcher());
-            int canInsert = count - amount;
+            long amount = countItems(to, insertSettings.getMatcher());
+            long canInsert = count - amount;
             if (canInsert <= 0)
                 return total;
 
-            toInsert = Math.min(toInsert, canInsert);
+            toInsert = (int) Math.min(toInsert, canInsert);
         }
         List<Integer> prioritySlots = ImmutableList.of();
         if (!insertSettings.isBlacklist() && insertSettings.isCountMode())
@@ -554,12 +554,12 @@ public class ItemChannelSettings extends DefaultChannelSettings implements IChan
                         IItemHandler handler = getItemHandlerAt(te, settings.getFacing());
                         if (handler != null) {
                             if (count != null) {
-                                int amount = countItems(handler, settings.getMatcher());
-                                int caninsert = count - amount;
+                                long amount = countItems(handler, settings.getMatcher());
+                                long caninsert = count - amount;
                                 if (caninsert <= 0) {
                                     continue;
                                 }
-                                toinsert = Math.min(toinsert, caninsert);
+                                toinsert = (int) Math.min(toinsert, caninsert);
                             }
 
                             stack = stack.copy();
@@ -631,12 +631,12 @@ public class ItemChannelSettings extends DefaultChannelSettings implements IChan
                 int toinsert = capItemTransfer(settings, total);
                 Integer count = settings.getCount();
                 if (count != null) {
-                    int amount = countItems(handler, settings.getMatcher());
-                    int caninsert = count - amount;
+                    long amount = countItems(handler, settings.getMatcher());
+                    long caninsert = count - amount;
                     if (caninsert <= 0) {
                         continue;
                     }
-                    toinsert = Math.min(toinsert, caninsert);
+                    toinsert = (int) Math.min(toinsert, caninsert);
                 }
 
                 stack = stack.copy();
@@ -659,8 +659,8 @@ public class ItemChannelSettings extends DefaultChannelSettings implements IChan
         }
     }
 
-    private int countItems(IItemHandler handler, Predicate<ItemStack> matcher) {
-        int cnt = 0;
+    private long countItems(IItemHandler handler, Predicate<ItemStack> matcher) {
+        long cnt = 0L;
         for (int i = 0 ; i < handler.getSlots() ; i++) {
             ItemStack s = handler.getStackInSlot(i);
             if (!s.isEmpty()) {

@@ -157,7 +157,7 @@ public class ItemFilterCache {
             return null;
 
         int needed = Integer.MAX_VALUE;
-        int cnt = 0;
+        long cnt = 0L;
         boolean found = false;
         for (ItemStack filterStack : stacks)
         {
@@ -190,7 +190,7 @@ public class ItemFilterCache {
             }
         }
 
-        return new ItemsNeededLocations(Math.max(needed - cnt, 0), locations);
+        return new ItemsNeededLocations((int) Math.max(needed - cnt, 0L), locations);
 
     }
 
